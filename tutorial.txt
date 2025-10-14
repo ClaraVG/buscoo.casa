@@ -1,3 +1,20 @@
 You can start your first spider with:
     cd buscoocasa
     scrapy genspider example example.com
+
+
+Vamos a hacer un motor de búsqueda, todas las fases que ello implica: 3
+1. Recogida de los datos (scrapy  -> pyton) escoger un dominio de busca
+2. Motor de búsqueda (elastic search)
+3. Interfaz web sencilla (sin backend) que se pueda conectar con elastic para hacer el buscador (vamos a ver tecnologías para conectar el buscador de manera fácil, bibliotecas de react, framework web de elastic)
+
+
+Scrapy startproject ejemplo_proyecto
+Viene un archivo de configuración. Crea una carpeta spiders (rastrea todas las urls que nos interesan) y varios .py
+
+Como lanzar un spider
+Scrapy crawl nombredelspider (dentro de quotes_spider.py hay una clase que se llame nombredelspider)
+
+
+TUTORIAL: https://docs.scrapy.org/en/latest/intro/tutorial.html
+INSTALACIÓN: pip install scrap
