@@ -1,0 +1,23 @@
+Date: Fri, 10 Oct 2025 14:31:46 GMT
+Content-Type: text/html; charset=UTF-8
+Accept-Ch: Sec-CH-UA-Bitness, Sec-CH-UA-Arch, Sec-CH-UA-Full-Version, Sec-CH-UA-Mobile, Sec-CH-UA-Model, Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Platform, Sec-CH-UA, UA-Bitness, UA-Arch, UA-Full-Version, UA-Mobile, UA-Model, UA-Platform-Version, UA-Platform, UA
+Cf-Mitigated: challenge
+Critical-Ch: Sec-CH-UA-Bitness, Sec-CH-UA-Arch, Sec-CH-UA-Full-Version, Sec-CH-UA-Mobile, Sec-CH-UA-Model, Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Platform, Sec-CH-UA, UA-Bitness, UA-Arch, UA-Full-Version, UA-Mobile, UA-Model, UA-Platform-Version, UA-Platform, UA
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+Origin-Agent-Cluster: ?1
+Permissions-Policy: accelerometer=(),autoplay=(),browsing-topics=(),camera=(),clipboard-read=(),clipboard-write=(),geolocation=(),gyroscope=(),hid=(),interest-cohort=(),magnetometer=(),microphone=(),payment=(),publickey-credentials-get=(),screen-wake-lock=(),serial=(),sync-xhr=(),usb=()
+Referrer-Policy: same-origin
+Server-Timing: chlray;desc="98c6d2c20d0f0362"
+Server-Timing: cfOrigin;dur=0,cfEdge;dur=46
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+Expires: Thu, 01 Jan 1970 00:00:01 GMT
+Set-Cookie: __cf_bm=rfW6B_cYHnn4H6EAOGeEEc.jdiaNe2sr5kJGghePrAQ-1760106706-1.0.1.1-UUqj.TDzN3RrYaFJAa_ifoaQh_oVtqp7fL57gY59mp9za2B4_9xsHKBrn3GbbeHWCrvLj4ISbSCG4roaksAPsabjpoOct5RCqZiUTAFGh6k; path=/; expires=Fri, 10-Oct-25 15:01:46 GMT; domain=.cardmarket.com; HttpOnly; Secure; SameSite=None
+Set-Cookie: _cfuvid=IAU2m.qfJ.BAzG5oWHtBOH_b04Utfi9PkNZih7vpfe0-1760106706286-0.0.1.1-604800000; path=/; domain=.cardmarket.com; HttpOnly; Secure; SameSite=None
+Vary: Accept-Encoding
+Server: cloudflare
+Cf-Ray: 98c6d2c20d0f0362-MAD
+Content-Encoding: gzip
