@@ -88,7 +88,7 @@ class PisosSpider(scrapy.Spider):
         item = PisosItem()
         item["url"] = response.url
 
-        # Preferencia: JSON-LD
+        # ---- 1) Preferencia: JSON-LD ----
         ld_json_list = response.xpath("//script[@type='application/ld+json']/text()").getall()
         data = None
         for raw in ld_json_list:
@@ -131,61 +131,125 @@ class PisosSpider(scrapy.Spider):
             elif isinstance(images, str):
                 item["images"] = [images]
 
-        # Respaldo por selectores genéricos
-        item["listing_id"] = (
-            response.xpath("//*[contains(text(),'Referencia')]/following::text()[1]").get()
-            or response.xpath("//*[contains(.,'Ref.')]/following::text()[1]").get()
-        )
-        if item["listing_id"]:
-            item["listing_id"] = item["listing_id"].strip().strip(":·- ")
+        # ---- 2) Fallbacks por URL/DOM/JS ----
 
+        # listing_id desde la URL (/alquilar/<slug>-57579337885_106500/)
+        if not item.get("listing_id"):
+            m = re.search(r"-([0-9]{6,})(?:_\d+)?/?", response.url)
+            if m:
+                item["listing_id"] = m.group(1)
+
+        # Precio (si sigue vacío) buscando € en el DOM
         if not item.get("price_eur"):
             price_txt = (
-                response.xpath("//*[contains(@class,'price')]/text()").get()
+                response.xpath("//*[contains(@class,'price') or contains(@class,'Price')]/text()").get()
                 or response.xpath("//*[contains(.,'€')][1]/text()").get()
             )
             if price_txt:
-                m = re.search(r"(\d[\d\.\s]*)\s*€", price_txt.replace("\xa0", " "))
+                m = re.search(r"(\d[\d\.\s,]*)\s*€", price_txt.replace("\xa0", " "))
                 if m:
                     try:
-                        item["price_eur"] = int(re.sub(r"[^\d]", "", m.group(1)))
+                        item["price_eur"] = int(float(m.group(1).replace(".", "").replace(",", ".")))
                     except Exception:
                         pass
 
+        # Título si faltara
         if not item.get("title"):
             t = response.xpath("//h1//text()").get()
             item["title"] = t.strip() if t else None
 
-        def grab_num(xpath):
-            txt = response.xpath(xpath).get()
-            if not txt:
-                return None
-            m = re.search(r"\d+", txt.replace(".", ""))
-            return int(m.group()) if m else None
+        # Bloques de características (habitaciones, baños, m2, planta)
+        # Unimos texto de posibles secciones de características
+        features_text = " ".join(
+            x.strip()
+            for x in response.xpath(
+                "//*[contains(@class,'features') or contains(@class,'caracter') or contains(@class,'characteristics') or contains(@class,'details')]//text()"
+            ).getall()
+            if x.strip()
+        ).lower()
 
-        item["rooms"] = grab_num("//*[contains(.,'habitación') or contains(.,'habitaciones')][1]//text()")
-        item["bathrooms"] = grab_num("//*[contains(.,'baño') or contains(.,'baños')][1]//text()")
-        item["surface_m2"] = grab_num("//*[contains(.,'m²') or contains(.,'m2')][1]//text()")
+        def grab_int_from(pattern, text):
+            m = re.search(pattern, text, re.IGNORECASE)
+            if m:
+                try:
+                    return int(m.group(1))
+                except Exception:
+                    return None
+            return None
 
-        floor_txt = response.xpath("//*[contains(.,'planta') and not(contains(.,'sin'))][1]//text()").get()
-        item["floor"] = floor_txt.strip() if floor_txt else None
+        def grab_float_from(pattern, text):
+            m = re.search(pattern, text, re.IGNORECASE)
+            if m:
+                try:
+                    return float(m.group(1).replace(".", "").replace(",", "."))
+                except Exception:
+                    return None
+            return None
 
+        # rooms
+        if item.get("rooms") is None and features_text:
+            item["rooms"] = grab_int_from(r"(\d+)\s*(?:hab|habitac)", features_text)
+
+        # bathrooms
+        if item.get("bathrooms") is None and features_text:
+            item["bathrooms"] = grab_int_from(r"(\d+)\s*(?:bañ|bano|baños)", features_text)
+
+        # surface_m2
+        if item.get("surface_m2") is None and features_text:
+            s = grab_float_from(r"(\d+(?:[.,]\d+)?)\s*(?:m²|m2)", features_text)
+            item["surface_m2"] = int(s) if s is not None else None
+
+        # floor (texto)
+        if not item.get("floor"):
+            floor_txt = response.xpath("//*[contains(translate(.,'PLANTAplanta','planta'),'planta')][1]//text()").get()
+            item["floor"] = floor_txt.strip() if floor_txt else ""
+
+        # flags (ya tenías ascensor/exterior; mantenemos)
         def has_flag(word):
             return response.xpath(
                 f"//*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{word}')][1]"
             ).get() is not None
 
-        item["has_elevator"] = True if has_flag("ascensor") else None
-        item["is_exterior"] = True if has_flag("exterior") else None
+        if item.get("has_elevator") is None:
+            item["has_elevator"] = True if has_flag("ascensor") else None
+        if item.get("is_exterior") is None:
+            item["is_exterior"] = True if has_flag("exterior") else None
 
-        agency = response.xpath("//*[contains(@class,'agency') or contains(@class,'publisher')]//text()").getall()
-        item["agency"] = " ".join(x.strip() for x in agency if x.strip()) or None
+        # Agencia (publisher) en bloques de agencia / breadcrumbs de autor
+        if not item.get("agency"):
+            agency_bits = response.xpath(
+                "//*[contains(@class,'agency') or contains(@class,'publisher') or contains(@class,'inmobiliaria')]//text()"
+            ).getall()
+            agency = " ".join(x.strip() for x in agency_bits if x.strip())
+            item["agency"] = agency or None
 
-        phone = response.xpath("//a[contains(@href,'tel:')]/@href").get()
-        item["phone"] = phone.replace("tel:", "") if phone else None
+        # Teléfono (si hubiera enlace tel:)
+        if not item.get("phone"):
+            phone = response.xpath("//a[contains(@href,'tel:')]/@href").get()
+            item["phone"] = phone.replace("tel:", "") if phone else None
 
-        pub = response.xpath("//*[contains(.,'publicado') or contains(.,'actualizado')]/text()").get()
-        item["published_at"] = pub.strip() if pub else None
+        # Fecha publicación/actualización en texto o meta
+        if not item.get("published_at"):
+            pub = (
+                response.xpath("//*[contains(.,'Actualizado') or contains(.,'Publicado')][1]//text()").get()
+                or response.xpath("//meta[@property='article:modified_time']/@content").get()
+            )
+            item["published_at"] = pub.strip() if pub else ""
+
+        # Coordenadas: intenta sacarlas de scripts (lat/lng).
+        if item.get("latitude") is None or item.get("longitude") is None:
+            scripts = "\n".join(response.xpath("//script/text()").getall())
+            # "latitude": 43.36, "longitude": -8.40
+            m = re.search(r'"latitude"\s*:\s*"?([0-9\.\-,]+)"?\s*,\s*"longitude"\s*:\s*"?([0-9\.\-,]+)"?', scripts)
+            if not m:
+                # lat: 43.36, lng: -8.40  (u otras variantes)
+                m = re.search(r'lat(?:itude)?\s*[:=]\s*([0-9\.\-,]+).*?(?:lng|lon(?:gitude)?)\s*[:=]\s*([0-9\.\-,]+)', scripts, re.DOTALL|re.IGNORECASE)
+            if m:
+                try:
+                    item["latitude"] = float(m.group(1).replace(",", "."))
+                    item["longitude"] = float(m.group(2).replace(",", "."))
+                except Exception:
+                    pass
 
         # -------- normalización & filtro de falsos positivos --------
         def to_float(v):
