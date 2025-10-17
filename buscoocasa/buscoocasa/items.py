@@ -1,12 +1,24 @@
-# Define here the models for your scraped items
-#
-# See documentation in:
-# https://docs.scrapy.org/en/latest/topics/items.html
-
 import scrapy
 
-
-class BuscoocasaItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+class PisosItem(scrapy.Item):
+    listing_id = scrapy.Field()
+    url = scrapy.Field()
+    title = scrapy.Field()
+    price_eur = scrapy.Field()
+    address = scrapy.Field()
+    municipality = scrapy.Field()
+    province = scrapy.Field()
+    neighborhood = scrapy.Field()
+    latitude = scrapy.Field()
+    longitude = scrapy.Field()
+    surface_m2 = scrapy.Field()
+    rooms = scrapy.Field()
+    bathrooms = scrapy.Field()
+    floor = scrapy.Field()
+    has_elevator = scrapy.Field()
+    is_exterior = scrapy.Field()
+    description = scrapy.Field()
+    agency = scrapy.Field()
+    phone = scrapy.Field()
+    images = scrapy.Field()
+    published_at = scrapy.Field()
