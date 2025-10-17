@@ -30,8 +30,7 @@ class PisosSpider(scrapy.Spider):
         """
         Acepta URLs de ficha:
         - /inmueble/...  o  /ficha/...
-        - /alquilar/<slug>-<numero_largo>_<numero>/
-          (patrón que usa pisos.com en las fichas)
+        - /alquilar/<slug>-<numero_largo>_<numero>[/][?query]
         Evita categorías /alquiler/... y paginación.
         """
         if not url or not url.startswith("http"):
@@ -41,8 +40,8 @@ class PisosSpider(scrapy.Spider):
         if re.search(r"/(inmueble|ficha)/", url):
             return True
 
-        # 2) patrón de fichas /alquilar/<slug>-47558735799_101000/
-        if re.search(r"/alquilar/[^/]+-\d{5,}_\d+/?$", url):
+        # 2) patrón de fichas /alquilar/<slug>-47558735799_101000/ (con o sin slash final y con o sin query)
+        if re.search(r"/alquilar/[^/]+-\d{5,}(?:_\d+)?(?:/)?(?:\?.*)?$", url):
             return True
 
         return False
@@ -51,15 +50,30 @@ class PisosSpider(scrapy.Spider):
     def parse(self, response):
         seen = set()
 
-        # Enlaces en <a href="...">
+        # 1) Enlaces en <a href="...">
         for href in response.xpath("//a[@href]/@href").getall():
             url = urljoin(response.url, href)
             if self._is_detail_url(url):
                 seen.add(url)
 
+        # 2) Enlaces en atributos data-href de cards
+        for href in response.xpath("//*[@data-href]/@data-href").getall():
+            url = urljoin(response.url, href)
+            if self._is_detail_url(url):
+                seen.add(url)
+
+        # 3) Enlaces en scripts embebidos (detailUrl / "url")
+        for raw in response.xpath("//script/text()").getall():
+            for m in re.findall(r'"(?:detailUrl|url)"\s*:\s*"([^"]+)"', raw):
+                url = urljoin(response.url, m.replace("\\/", "/"))
+                if self._is_detail_url(url):
+                    seen.add(url)
+
         self.logger.info(f"[pisos] enlaces de ficha detectados en la página: {len(seen)}")
-        for url in sorted(seen):
-            yield response.follow(url, callback=self.parse_detail)
+        for i, u in enumerate(sorted(seen)):
+            if i < 3:
+                self.logger.info(f"[pisos] ejemplo enlace ficha: {u}")
+            yield response.follow(u, callback=self.parse_detail)
 
         # Paginación
         next_url = (
