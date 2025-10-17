@@ -1,7 +1,7 @@
 import json
 import re
 import scrapy
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, parse_qs
 from buscoocasa.items import PisosItem
 
 
@@ -31,19 +31,13 @@ class PisosSpider(scrapy.Spider):
         Acepta URLs de ficha:
         - /inmueble/...  o  /ficha/...
         - /alquilar/<slug>-<numero_largo>_<numero>[/][?query]
-        Evita categorías /alquiler/... y paginación.
         """
         if not url or not url.startswith("http"):
             return False
-
-        # 1) patrones clásicos
         if re.search(r"/(inmueble|ficha)/", url):
             return True
-
-        # 2) patrón de fichas /alquilar/<slug>-47558735799_101000/ (con o sin slash final y con o sin query)
         if re.search(r"/alquilar/[^/]+-\d{5,}(?:_\d+)?(?:/)?(?:\?.*)?$", url):
             return True
-
         return False
 
     # ------------ listado ------------
@@ -125,6 +119,11 @@ class PisosSpider(scrapy.Spider):
             item["latitude"] = geo.get("latitude")
             item["longitude"] = geo.get("longitude")
 
+            # Agencia / publisher desde JSON-LD si existiese
+            seller = data.get("seller") or data.get("publisher") or data.get("brand")
+            if isinstance(seller, dict):
+                item["agency"] = seller.get("name")
+
             images = data.get("image")
             if isinstance(images, list):
                 item["images"] = images
@@ -133,7 +132,7 @@ class PisosSpider(scrapy.Spider):
 
         # ---- 2) Fallbacks por URL/DOM/JS ----
 
-        # listing_id desde la URL (/alquilar/<slug>-57579337885_106500/)
+        # listing_id desde la URL
         if not item.get("listing_id"):
             m = re.search(r"-([0-9]{6,})(?:_\d+)?/?", response.url)
             if m:
@@ -158,15 +157,11 @@ class PisosSpider(scrapy.Spider):
             t = response.xpath("//h1//text()").get()
             item["title"] = t.strip() if t else None
 
-        # Bloques de características (habitaciones, baños, m2, planta)
-        # Unimos texto de posibles secciones de características
-        features_text = " ".join(
-            x.strip()
-            for x in response.xpath(
-                "//*[contains(@class,'features') or contains(@class,'caracter') or contains(@class,'characteristics') or contains(@class,'details')]//text()"
-            ).getall()
-            if x.strip()
-        ).lower()
+        # --- Características en texto ---
+        features_nodes = response.xpath(
+            "//*[contains(@class,'features') or contains(@class,'caracter') or contains(@class,'characteristics') or contains(@class,'details')]//text()"
+        ).getall()
+        features_text = " ".join(x.strip() for x in features_nodes if x.strip()).lower()
 
         def grab_int_from(pattern, text):
             m = re.search(pattern, text, re.IGNORECASE)
@@ -186,25 +181,30 @@ class PisosSpider(scrapy.Spider):
                     return None
             return None
 
-        # rooms
+        # rooms (hab, habitaciones, dormitorios)
         if item.get("rooms") is None and features_text:
-            item["rooms"] = grab_int_from(r"(\d+)\s*(?:hab|habitac)", features_text)
+            item["rooms"] = grab_int_from(r"(\d+)\s*(?:hab|habitac|dormitori)", features_text)
 
-        # bathrooms
+        # bathrooms (baños/aseos)
         if item.get("bathrooms") is None and features_text:
-            item["bathrooms"] = grab_int_from(r"(\d+)\s*(?:bañ|bano|baños)", features_text)
+            item["bathrooms"] = grab_int_from(r"(\d+)\s*(?:bañ|bano|baños|aseo|aseos|wc)", features_text)
 
-        # surface_m2
+        # surface_m2 (útiles o construidos o genérico)
         if item.get("surface_m2") is None and features_text:
-            s = grab_float_from(r"(\d+(?:[.,]\d+)?)\s*(?:m²|m2)", features_text)
+            s = (grab_float_from(r"(\d+(?:[.,]\d+)?)\s*(?:m²|m2)\s*(?:útiles|utiles)", features_text)
+                 or grab_float_from(r"(\d+(?:[.,]\d+)?)\s*(?:m²|m2)\s*(?:construid)", features_text)
+                 or grab_float_from(r"(\d+(?:[.,]\d+)?)\s*(?:m²|m2)", features_text))
             item["surface_m2"] = int(s) if s is not None else None
 
-        # floor (texto)
+        # floor (texto): bajo, entresuelo, principal, 1º, 2ª, etc.
         if not item.get("floor"):
-            floor_txt = response.xpath("//*[contains(translate(.,'PLANTAplanta','planta'),'planta')][1]//text()").get()
+            floor_txt = (
+                response.xpath("//*[contains(translate(.,'PLANTAplanta','planta'),'planta')][1]//text()").get()
+                or response.xpath("//*[contains(.,'bajo') or contains(.,'entresuelo') or contains(.,'principal') or contains(.,'ático') or contains(.,'ático')][1]//text()").get()
+            )
             item["floor"] = floor_txt.strip() if floor_txt else ""
 
-        # flags (ya tenías ascensor/exterior; mantenemos)
+        # flags: ascensor / exterior (también marca interior => exterior False)
         def has_flag(word):
             return response.xpath(
                 f"//*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{word}')][1]"
@@ -212,44 +212,98 @@ class PisosSpider(scrapy.Spider):
 
         if item.get("has_elevator") is None:
             item["has_elevator"] = True if has_flag("ascensor") else None
-        if item.get("is_exterior") is None:
-            item["is_exterior"] = True if has_flag("exterior") else None
 
-        # Agencia (publisher) en bloques de agencia / breadcrumbs de autor
+        if item.get("is_exterior") is None:
+            if has_flag("interior"):
+                item["is_exterior"] = False
+            elif has_flag("exterior"):
+                item["is_exterior"] = True
+            else:
+                item["is_exterior"] = None
+
+        # Agencia / publisher (bloques de agencia, breadcrumbs y scripts)
         if not item.get("agency"):
             agency_bits = response.xpath(
-                "//*[contains(@class,'agency') or contains(@class,'publisher') or contains(@class,'inmobiliaria')]//text()"
+                "//*[contains(@class,'agency') or contains(@class,'publisher') or contains(@class,'inmobiliaria') or contains(@class,'author') or contains(@class,'company')]//text()"
             ).getall()
             agency = " ".join(x.strip() for x in agency_bits if x.strip())
+            if not agency:
+                # intenta desde scripts: "agencyName": "..."
+                scripts = "\n".join(response.xpath("//script/text()").getall())
+                m = re.search(r'"(?:agencyName|publisher|seller)"\s*:\s*"?\{?[^}]*?"name"\s*:\s*"([^"]+)"', scripts, re.IGNORECASE)
+                if not m:
+                    m = re.search(r'"(?:agencyName|agency|inmobiliaria)"\s*:\s*"([^"]+)"', scripts, re.IGNORECASE)
+                if m:
+                    agency = m.group(1).strip()
             item["agency"] = agency or None
 
-        # Teléfono (si hubiera enlace tel:)
+        # Teléfono
         if not item.get("phone"):
             phone = response.xpath("//a[contains(@href,'tel:')]/@href").get()
+            if not phone:
+                # busca teléfono en scripts (formato español)
+                scripts = "\n".join(response.xpath("//script/text()").getall())
+                m = re.search(r"(?:\+34\s*)?(\d{3}\s?\d{2}\s?\d{2}\s?\d{2})", scripts)
+                phone = m.group(0) if m else None
             item["phone"] = phone.replace("tel:", "") if phone else None
 
-        # Fecha publicación/actualización en texto o meta
+        # Fecha publicación/actualización -> normaliza a ISO YYYY-MM-DD si es posible
         if not item.get("published_at"):
             pub = (
                 response.xpath("//*[contains(.,'Actualizado') or contains(.,'Publicado')][1]//text()").get()
                 or response.xpath("//meta[@property='article:modified_time']/@content").get()
+                or response.xpath("//meta[@property='article:published_time']/@content").get()
             )
-            item["published_at"] = pub.strip() if pub else ""
+            pub = pub.strip() if pub else ""
+            iso = self._normalize_date(pub)
+            item["published_at"] = iso or pub
 
-        # Coordenadas: intenta sacarlas de scripts (lat/lng).
+        # Coordenadas: JSON, atributos, scripts y querystrings de mapas
         if item.get("latitude") is None or item.get("longitude") is None:
+            # 1) atributos data-lat/lng
+            lat_attr = response.xpath("//*[@data-lat]/@data-lat").get()
+            lng_attr = response.xpath("//*[@data-lng]/@data-lng").get()
+            # 2) scripts con latitude/longitude o mapCenter
             scripts = "\n".join(response.xpath("//script/text()").getall())
-            # "latitude": 43.36, "longitude": -8.40
             m = re.search(r'"latitude"\s*:\s*"?([0-9\.\-,]+)"?\s*,\s*"longitude"\s*:\s*"?([0-9\.\-,]+)"?', scripts)
             if not m:
-                # lat: 43.36, lng: -8.40  (u otras variantes)
-                m = re.search(r'lat(?:itude)?\s*[:=]\s*([0-9\.\-,]+).*?(?:lng|lon(?:gitude)?)\s*[:=]\s*([0-9\.\-,]+)', scripts, re.DOTALL|re.IGNORECASE)
-            if m:
+                m = re.search(r'mapCenter"\s*:\s*\{[^}]*?lat"\s*:\s*([0-9\.\-,]+)\s*,\s*"?(?:lng|lon|longitude)"?\s*:\s*([0-9\.\-,]+)', scripts, re.IGNORECASE)
+            # 3) URLs de mapa con ?center=lat,lon
+            if not m:
+                for href in response.xpath("//iframe/@src | //img/@src | //a/@href").getall():
+                    qs = parse_qs(urlparse(urljoin(response.url, href)).query)
+                    if "center" in qs and qs["center"]:
+                        parts = qs["center"][0].split(",")
+                        if len(parts) == 2:
+                            lat_attr = lat_attr or parts[0]
+                            lng_attr = lng_attr or parts[1]
+
+            def to_f(v):
+                if not v:
+                    return None
                 try:
-                    item["latitude"] = float(m.group(1).replace(",", "."))
-                    item["longitude"] = float(m.group(2).replace(",", "."))
+                    return float(str(v).replace(",", "."))
                 except Exception:
-                    pass
+                    return None
+
+            lat = to_f((m.group(1) if m else None) or lat_attr)
+            lng = to_f((m.group(2) if m else None) or lng_attr)
+            item["latitude"] = lat if lat is not None else item.get("latitude")
+            item["longitude"] = lng if lng is not None else item.get("longitude")
+
+        # neighborhood desde breadcrumbs o slug si faltara
+        if not item.get("neighborhood"):
+            crumb = response.xpath("//nav//a[contains(@href,'-a_coruna') or contains(@href,'a_coruna')]/text()").get()
+            if crumb and crumb.strip():
+                item["neighborhood"] = crumb.strip()
+            else:
+                # intenta del slug: .../alquilar/piso-os_mallos_a_falperra15007-...
+                m = re.search(r"/alquilar/[^/]*?([a-z0-9_]+)-\d", response.url)
+                if m:
+                    slug = m.group(1)
+                    # quita posibles prefijos de tipo de vivienda
+                    slug = re.sub(r"^(piso|apartamento|atico|ático|chalet|estudio|loft|duplex|dúplex|adosado|casa|vivienda|bajo|atico)\-?", "", slug, flags=re.IGNORECASE)
+                    item["neighborhood"] = slug.replace("_", " ").title()
 
         # -------- normalización & filtro de falsos positivos --------
         def to_float(v):
@@ -270,4 +324,27 @@ class PisosSpider(scrapy.Spider):
         if not item.get("price_eur") and not title_ok:
             return
 
+        # Si no hay imágenes en JSON-LD, intenta galería (miniaturas con data-src o src)
+        if not item.get("images"):
+            imgs = response.xpath("//img[@src or @data-src]/@src | //img[@data-src]/@data-src").getall()
+            imgs = [urljoin(response.url, u) for u in imgs if u]
+            item["images"] = list(dict.fromkeys([u for u in imgs if "fotos" in u or "imghs" in u])) or None
+
         yield item
+
+    # -------- helpers --------
+    def _normalize_date(self, raw: str):
+        """Convierte 'Actualizado el 12/10/2025' o '2025-10-12T...' a 'YYYY-MM-DD' si puede."""
+        if not raw:
+            return None
+        raw = raw.strip()
+        # ISO directo
+        m = re.search(r"(\d{4})-(\d{2})-(\d{2})", raw)
+        if m:
+            return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+        # dd/mm/yyyy
+        m = re.search(r"(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})", raw)
+        if m:
+            d, mo, y = m.groups()
+            return f"{y}-{int(mo):02d}-{int(d):02d}"
+        return None
