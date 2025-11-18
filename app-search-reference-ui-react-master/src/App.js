@@ -63,7 +63,7 @@ export default function App() {
     <SearchProvider 
       config={config}
       
-      // ⭐ BÚSQUEDA INICIAL VACÍA = MUESTRA TODO
+      // BÚSQUEDA INICIAL VACÍA = MUESTRA TODO
       initialState={{ searchTerm: "" }}  
     >
       <WithSearch mapContextToProps={({ wasSearched }) => ({ wasSearched })}>
