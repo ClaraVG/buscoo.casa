@@ -16,6 +16,11 @@ def insert_docs(file_path):
     docs = load_jsonl(file_path)
     actions = []
     for doc in docs:
+        # Normalizamos los campos que podrían dar problemas con el mapping
+        doc["published_at"] = doc.get("published_at") or "1970-01-01T00:00:00Z"
+        doc["latitude"] = float(doc.get("latitude") or 0.0)
+        doc["longitude"] = float(doc.get("longitude") or 0.0)
+
         action = {
             "_index": INDEX_NAME,
             "_id": doc.get("listing_id"),

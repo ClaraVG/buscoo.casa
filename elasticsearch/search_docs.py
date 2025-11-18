@@ -17,7 +17,7 @@ def search_items(query, neighborhood=None, price_range=None, rooms=None):
         })
 
     if neighborhood:
-        filter_conditions.append({"term": {"neighborhood.keyword": neighborhood}})
+        filter_conditions.append({"term": {"neighborhood": neighborhood}})
 
     if price_range:
         filter_conditions.append({
