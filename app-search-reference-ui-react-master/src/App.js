@@ -2,6 +2,8 @@ import React from "react";
 
 import ElasticsearchAPIConnector from "@elastic/search-ui-elasticsearch-connector";
 
+import CustomResultView from "./components/CustomResultView";
+
 import {
   ErrorBoundary,
   Facet,
@@ -83,18 +85,16 @@ export default function App() {
 
                 bodyContent={
                   <Results
-                    titleField={titleField}
-                    urlField={urlField}
-                    thumbnailField={thumbnailField}
-                    shouldTrackClickThrough={true}
-
+                    titleField="title"
+                    urlField="url"
+                    shouldTrackClickThrough={false}
+                    resultView={CustomResultView}   // ⭐ MOSTRAR IMÁGENES
                     bodyHeader={
                       <>
-                        <PagingInfo />
-                        <ResultsPerPage />
+                        {wasSearched && <PagingInfo />}
+                        {wasSearched && <ResultsPerPage />}
                       </>
                     }
-
                     bodyFooter={<Paging />}
                   />
                 }
