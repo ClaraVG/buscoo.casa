@@ -3,7 +3,7 @@ from sentence_transformers import SentenceTransformer
 
 # Initialize client
 es = Elasticsearch("http://localhost:9200")
-INDEX_NAME = "items_index"
+INDEX_NAME = "pisos_index"
 
 # Load embedding model for recommendations & clustering
 model = SentenceTransformer("all-MiniLM-L6-v2")

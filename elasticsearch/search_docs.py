@@ -2,7 +2,7 @@ from elasticsearch import Elasticsearch
 from sentence_transformers import SentenceTransformer
 
 es = Elasticsearch("http://localhost:9200")
-INDEX_NAME = "items_index"
+INDEX_NAME = "pisos_index"
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # ---- SEARCH WITH OPTIONAL FILTERS ---- #
