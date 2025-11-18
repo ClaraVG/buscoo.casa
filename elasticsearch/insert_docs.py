@@ -1,41 +1,32 @@
-from elasticsearch import Elasticsearch
-from sentence_transformers import SentenceTransformer
+from elasticsearch import Elasticsearch, helpers
+import json
 
-# Initialize client
+# Elasticsearch connection
 es = Elasticsearch("http://localhost:9200")
 INDEX_NAME = "pisos_index"
 
-# Load embedding model for recommendations & clustering
-model = SentenceTransformer("all-MiniLM-L6-v2")
+def load_jsonl(file_path):
+    docs = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            docs.append(json.loads(line))
+    return docs
 
-# Example dataset
-documents = [
-    {
-        "id": 1,
-        "title": "Red Gaming Keyboard",
-        "description": "Mechanical keyboard with red LED lighting.",
-        "category": "electronics",
-        "price": 49.99
-    },
-    {
-        "id": 2,
-        "title": "Blue Office Chair",
-        "description": "Comfortable ergonomic chair.",
-        "category": "furniture",
-        "price": 129.99
-    },
-]
+def insert_docs(file_path):
+    docs = load_jsonl(file_path)
+    actions = []
+    for doc in docs:
+        action = {
+            "_index": INDEX_NAME,
+            "_id": doc.get("listing_id"),
+            "_source": doc
+        }
+        actions.append(action)
 
-def insert_documents():
-    for doc in documents:
-        text_for_embedding = doc["title"] + " " + doc["description"]
-        doc_embedding = model.encode(text_for_embedding).tolist()
-        
-        body = doc.copy()
-        body["embedding"] = doc_embedding
-
-        es.index(index=INDEX_NAME, id=doc["id"], body=body)
-        print(f"Inserted document ID {doc['id']}")
+    # Bulk insert
+    helpers.bulk(es, actions)
+    print(f"Inserted {len(actions)} documents into {INDEX_NAME}")
 
 if __name__ == "__main__":
-    insert_documents()
+    jsonl_file = "../buscoocasa/data/pisos_a_coruna.jsonl"
+    insert_docs(jsonl_file)

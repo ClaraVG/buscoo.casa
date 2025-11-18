@@ -1,11 +1,11 @@
 from elasticsearch import Elasticsearch
 
-# Initialize client
+# Inicializar cliente
 es = Elasticsearch("http://localhost:9200")
 
-INDEX_NAME = "pisos_index"
+INDEX_NAME = "pisos_coruna"
 
-# Index mapping with category field and vector field
+# Mapping adaptado con embedding y campos de pisos
 mapping = {
     "mappings": {
         "properties": {
@@ -13,20 +13,28 @@ mapping = {
             "description": {"type": "text"},
             "category": {"type": "keyword"},
             "price": {"type": "float"},
-            "embedding": {
-                "type": "dense_vector",
-                "dims": 384
-            }
+            "embedding": {"type": "dense_vector", "dims": 384},
+            "listing_id": {"type": "keyword"},
+            "neighborhood": {"type": "keyword"},
+            "rooms": {"type": "integer"},
+            "bathrooms": {"type": "integer"},
+            "surface_m2": {"type": "float"},
+            "floor": {"type": "keyword"},
+            "has_elevator": {"type": "boolean"},
+            "is_exterior": {"type": "boolean"},
+            "phone": {"type": "keyword"},
+            "published_at": {"type": "date"},
+            "latitude": {"type": "float"},
+            "longitude": {"type": "float"},
+            "images": {"type": "keyword"}
         }
     }
 }
 
 def create_index():
-    # FIX → use keyword argument: index=INDEX_NAME
     if es.indices.exists(index=INDEX_NAME):
         print(f"Index {INDEX_NAME} already exists.")
     else:
-        # FIX → index, mappings must be keyword arguments
         es.indices.create(index=INDEX_NAME, body=mapping)
         print(f"Index {INDEX_NAME} created successfully.")
 

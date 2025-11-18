@@ -27,12 +27,12 @@ import {
 } from "./config/config-helper";
 
 const { hostIdentifier, searchKey, endpointBase, engineName } = getConfig();
-const connector = new AppSearchAPIConnector({
-  searchKey,
-  engineName,
-  hostIdentifier,
-  endpointBase
+
+const connector = new ElasticsearchAPIConnector({
+  host: "http://localhost:9200",
+  index: "pisos_index"
 });
+
 const config = {
   searchQuery: {
     facets: buildFacetConfigFromConfig(),
