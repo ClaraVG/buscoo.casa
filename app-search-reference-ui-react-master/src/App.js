@@ -3,6 +3,7 @@ import React from "react";
 import ElasticsearchAPIConnector from "@elastic/search-ui-elasticsearch-connector";
 
 import CustomResultView from "./components/CustomResultView";
+import Charts from "./components/Charts";
 
 import {
   ErrorBoundary,
@@ -32,8 +33,6 @@ const config = {
   alwaysSearchOnInitialLoad: true,
 
   searchQuery: {
-    // 🔹 SOLO usamos title como campo de búsqueda de texto
-    // para evitar el error de phrase_prefix sobre neighborhood (keyword)
     search_fields: {
       title: {}
       // neighborhood fuera de aquí, que es keyword
@@ -52,7 +51,6 @@ const config = {
       images: { raw: {} }
     },
 
-    // Facetas
     facets: {
       neighborhood: {
         type: "value",
@@ -88,6 +86,8 @@ export default function App() {
                 <Facet field="neighborhood" label="Barrio" />
                 <Facet field="rooms" label="Habitaciones" />
                 <Facet field="price_eur" label="Precio (€)" />
+
+                <Charts />
               </div>
             }
             bodyHeader={

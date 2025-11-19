@@ -11,7 +11,7 @@ export default function CustomResultView({ result }) {
   const imagesRaw = result?.images?.raw;
   const images = Array.isArray(imagesRaw) ? imagesRaw : [];
 
-  // Elegimos la primera imagen "buena" (que contenga "fotos"), si no, la primera que haya
+  // Elegimos la primera imagen "buena"
   const mainImage =
     images.find((img) => typeof img === "string" && img.includes("fotos")) ||
     images[0] ||
