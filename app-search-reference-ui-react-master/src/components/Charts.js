@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { WithSearch } from "@elastic/react-search-ui";
 import {
   BarChart,
@@ -13,77 +13,208 @@ import {
   ResponsiveContainer
 } from "recharts";
 
-// Componente de gráficas responsive para sidebar
-export default function Charts() {
-  return (
-    <WithSearch mapContextToProps={({ results }) => ({ results })}>
-      {({ results }) => {
-        if (!results) return null;
+/**
+ * Este componente:
+ * - Lee de Search UI: searchTerm y filters (igual que las facets)
+ * - Construye una query de Elasticsearch con esos filtros / búsqueda
+ * - Pide AGGREGATIONS (no hits) sobre TODOS los pisos que cumplan la query
+ *   - avg precio por barrio
+ *   - distribución de habitaciones
+ * - No depende de cuántos resultados se muestran (20/40/60)
+ */
 
-        const data = results.map((r) => ({
-          neighborhood: r.neighborhood?.raw,
-          price: r.price_eur?.raw,
-          rooms: r.rooms?.raw
+function ChartsInner({ searchTerm, filters }) {
+  const [avgPriceByNeighborhood, setAvgPriceByNeighborhood] = useState([]);
+  const [roomsDistribution, setRoomsDistribution] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function fetchAggs() {
+      try {
+        setLoading(true);
+        setError("");
+
+        // Convertimos los filtros de Search UI a filtros de Elasticsearch
+        // filters: [{ field: "neighborhood", values: ["X", "Y"], type: "value" }, ...]
+        const esFilters = (filters || []).flatMap((f) =>
+          (f.values || []).map((value) => ({
+            term: { [f.field]: value }
+          }))
+        );
+
+        let esQuery;
+
+        if (searchTerm && searchTerm.trim() !== "") {
+          esQuery = {
+            bool: {
+              must: [
+                {
+                  multi_match: {
+                    query: searchTerm,
+                    fields: ["title", "neighborhood", "description"]
+                  }
+                }
+              ],
+              filter: esFilters
+            }
+          };
+        } else if (esFilters.length) {
+          esQuery = {
+            bool: {
+              filter: esFilters
+            }
+          };
+        } else {
+          esQuery = { match_all: {} };
+        }
+
+        const response = await fetch(
+          "http://localhost:9200/pisos_index/_search",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              size: 0, // no queremos documentos, solo agregaciones
+              query: esQuery,
+              aggs: {
+                avg_price_by_neighborhood: {
+                  terms: {
+                    field: "neighborhood",
+                    size: 50
+                  },
+                  aggs: {
+                    avg_price: {
+                      avg: { field: "price_eur" }
+                    }
+                  }
+                },
+                rooms_distribution: {
+                  terms: {
+                    field: "rooms",
+                    size: 20
+                  }
+                }
+              }
+            })
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}`);
+        }
+
+        const json = await response.json();
+        const aggs = json.aggregations || {};
+
+        // Precio medio por barrio
+        const bucketsNeighborhood =
+          aggs.avg_price_by_neighborhood?.buckets || [];
+        const avgData = bucketsNeighborhood
+          .filter((b) => b.avg_price && b.avg_price.value != null)
+          .map((b) => ({
+            neighborhood: b.key,
+            avg: Number(b.avg_price.value.toFixed(2))
+          }));
+
+        // Distribución de habitaciones
+        const bucketsRooms = aggs.rooms_distribution?.buckets || [];
+        const roomsData = bucketsRooms.map((b) => ({
+          rooms: `${b.key} hab`,
+          count: b.doc_count
         }));
 
-        // Precio medio por barrio con 2 decimales
-        const avgPriceByNeighborhood = Object.values(
-          data.reduce((acc, item) => {
-            if (!item.neighborhood) return acc;
-            if (!acc[item.neighborhood]) acc[item.neighborhood] = { neighborhood: item.neighborhood, total: 0, count: 0 };
-            acc[item.neighborhood].total += item.price;
-            acc[item.neighborhood].count += 1;
-            return acc;
-          }, {})
-        ).map((i) => ({ neighborhood: i.neighborhood, avg: parseFloat((i.total / i.count).toFixed(2)) }));
+        setAvgPriceByNeighborhood(avgData);
+        setRoomsDistribution(roomsData);
+      } catch (e) {
+        console.error(e);
+        setError("Error cargando datos para las gráficas");
+      } finally {
+        setLoading(false);
+      }
+    }
 
-        // Distribución de habitaciones con etiqueta personalizada
-        const roomsDistribution = Object.values(
-          data.reduce((acc, item) => {
-            if (!item.rooms) return acc;
-            const label = `${item.rooms} hab`;
-            if (!acc[label]) acc[label] = { rooms: label, count: 0 };
-            acc[label].count += 1;
-            return acc;
-          }, {})
-        );
+    // Cuando cambian búsqueda o filtros, recalculamos
+    fetchAggs();
+  }, [searchTerm, JSON.stringify(filters)]);
 
-        return (
-          <div style={{ marginBottom: "1.5rem", width: "100%" }}>
-            <h3 style={{ fontSize: "14px", marginTop: "1rem" }}>Precio medio por barrio</h3>
-            <div style={{ width: "100%", height: 220 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={avgPriceByNeighborhood}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="neighborhood" hide={false} tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(value) => value.toFixed(2)} />
-                  <Bar dataKey="avg" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+  if (loading) {
+    return <div style={{ marginTop: "1rem" }}>Cargando gráficas…</div>;
+  }
 
-            <h3 style={{ fontSize: "14px", marginTop: "1rem" }}>Distribución de habitaciones</h3>
-            <div style={{ width: "100%", height: 250 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={roomsDistribution}
-                    dataKey="count"
-                    nameKey="rooms"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={70}
-                    label
-                  />
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: "10px" }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        );
-      }}
+  if (error) {
+    return (
+      <div style={{ marginTop: "1rem", color: "red" }}>
+        {error}
+      </div>
+    );
+  }
+
+  if (!avgPriceByNeighborhood.length && !roomsDistribution.length) {
+    return (
+      <div style={{ marginTop: "1rem" }}>
+        No hay datos para las gráficas con estos filtros.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: "1.5rem", width: "100%" }}>
+      <h3 style={{ fontSize: "14px", marginTop: "1rem" }}>
+        Precio medio por barrio (total filtrado)
+      </h3>
+      <div style={{ width: "100%", height: 220 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={avgPriceByNeighborhood}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="neighborhood"
+              hide={false}
+              tick={{ fontSize: 10 }}
+            />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip formatter={(value) => Number(value).toFixed(2)} />
+            <Bar dataKey="avg" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <h3 style={{ fontSize: "14px", marginTop: "1rem" }}>
+        Distribución de habitaciones (total filtrado)
+      </h3>
+      <div style={{ width: "100%", height: 250 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={roomsDistribution}
+              dataKey="count"
+              nameKey="rooms"
+              cx="50%"
+              cy="50%"
+              outerRadius={70}
+              label
+            />
+            <Tooltip />
+            <Legend wrapperStyle={{ fontSize: "10px" }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+// Conectamos la query a Search UI (props desde App.js)
+export default function Charts() {
+  return (
+    <WithSearch
+      mapContextToProps={({ searchTerm, filters }) => ({
+        searchTerm,
+        filters
+      })}
+    >
+      {(props) => <ChartsInner {...props} />}
     </WithSearch>
   );
 }

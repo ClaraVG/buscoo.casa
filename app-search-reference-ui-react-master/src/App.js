@@ -35,7 +35,6 @@ const config = {
   searchQuery: {
     search_fields: {
       title: {}
-      // neighborhood fuera de aquí, que es keyword
     },
 
     // Campos que devolvemos
@@ -54,7 +53,7 @@ const config = {
     facets: {
       neighborhood: {
         type: "value",
-        field: "neighborhood" // neighborhood es keyword, perfecto para facet
+        field: "neighborhood"
       },
       rooms: {
         type: "value",
