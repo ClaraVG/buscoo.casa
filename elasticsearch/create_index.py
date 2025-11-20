@@ -13,8 +13,6 @@ mapping = {
             "description": {"type": "text"},
             "category": {"type": "keyword"},
             "price": {"type": "float"},
-            "embedding": {"type": "dense_vector", "dims": 384},
-            "listing_id": {"type": "keyword"},
             "neighborhood": {"type": "keyword"},
             "rooms": {"type": "integer"},
             "bathrooms": {"type": "integer"},
