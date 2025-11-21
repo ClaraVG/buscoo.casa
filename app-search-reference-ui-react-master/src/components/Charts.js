@@ -1,3 +1,4 @@
+// Charts.js
 import React, { useEffect, useState } from "react";
 import { WithSearch } from "@elastic/react-search-ui";
 import {
@@ -106,7 +107,6 @@ function ChartsInner({ searchTerm, filters }) {
         const json = await response.json();
         const aggs = json.aggregations || {};
 
-        // Precio medio por barrio
         const bucketsNeighborhood =
           aggs.avg_price_by_neighborhood?.buckets || [];
         const avgData = bucketsNeighborhood
@@ -156,59 +156,70 @@ function ChartsInner({ searchTerm, filters }) {
   }
 
   return (
-    <div style={{ marginBottom: "1.5rem", width: "100%" }}>
-      <h3 style={{ fontSize: "14px", marginTop: "1rem" }}>
-        Precio medio por barrio (total filtrado)
-      </h3>
-      <div style={{ width: "100%", height: 220 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={avgPriceByNeighborhood}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="neighborhood"
-              hide={false}
-              tick={{ fontSize: 10 }}
-            />
-            <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip formatter={(value) => Number(value).toFixed(2)} />
-            <Bar dataKey="avg">
-              {avgPriceByNeighborhood.map((entry, index) => (
-                <Cell
-                  key={`bar-${entry.neighborhood}-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+    // 👇 aquí el cambio: más margen inferior
+    <div style={{ marginBottom: "3rem", width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "96px"
+        }}
+      >
+        {/* Gráfica de barras */}
+        <div style={{ flex: "0 0 55%", maxWidth: "700px" }}>
+          <h3 style={{ fontSize: "14px", marginBottom: "8px" }}>
+            Precio medio por barrio (total filtrado)
+          </h3>
+          <div style={{ width: "100%", height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={avgPriceByNeighborhood}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="neighborhood" hide={false} tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(value) => Number(value).toFixed(2)} />
+                <Bar dataKey="avg">
+                  {avgPriceByNeighborhood.map((entry, index) => (
+                    <Cell
+                      key={`bar-${entry.neighborhood}-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-      <h3 style={{ fontSize: "14px", marginTop: "1rem" }}>
-        Distribución de habitaciones (total filtrado)
-      </h3>
-      <div style={{ width: "100%", height: 250 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={roomsDistribution}
-              dataKey="count"
-              nameKey="rooms"
-              cx="50%"
-              cy="50%"
-              outerRadius={70}
-              label
-            >
-              {roomsDistribution.map((entry, index) => (
-                <Cell
-                  key={`pie-${entry.rooms}-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend wrapperStyle={{ fontSize: "10px" }} />
-          </PieChart>
-        </ResponsiveContainer>
+        {/* Gráfica de pastel */}
+        <div style={{ flex: "0 0 30%", maxWidth: "350px" }}>
+          <h3 style={{ fontSize: "14px", marginBottom: "8px" }}>
+            Distribución de habitaciones (total filtrado)
+          </h3>
+          <div style={{ width: "100%", height: 250 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={roomsDistribution}
+                  dataKey="count"
+                  nameKey="rooms"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={70}
+                  label
+                >
+                  {roomsDistribution.map((entry, index) => (
+                    <Cell
+                      key={`pie-${entry.rooms}-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: "10px" }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
     </div>
   );

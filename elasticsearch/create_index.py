@@ -18,11 +18,7 @@ mapping = {
       "rooms": { "type": "integer" },
       "bathrooms": { "type": "integer" },
       "surface_m2": { "type": "float" },
-      "floor": { "type": "keyword" },
-
-      "has_elevator": { "type": "boolean" },
-      "is_exterior": { "type": "boolean" },
-
+      
       "neighborhood": { "type": "keyword" },
 
       "images": { "type": "keyword" }

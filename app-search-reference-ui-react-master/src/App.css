@@ -1,3 +1,4 @@
+/* Estilos del botón de búsqueda */
 input.button.sui-search-box__submit {
   background-color: #174978 !important;
   background-image: none !important;
@@ -15,6 +16,7 @@ input.button.sui-search-box__submit:hover {
   border-color: #003366 !important;
 }
 
+/* Título de la card */
 .result-card a h3 {
   color: #174978 !important;
   text-decoration: none !important;
@@ -24,6 +26,7 @@ input.button.sui-search-box__submit:hover {
   color: #003366 !important;
 }
 
+/* Centrar barra de búsqueda */
 .sui-layout-header__inner {
   width: 100% !important;
   display: flex !important;
