@@ -10,18 +10,18 @@ import {
   PieChart,
   Pie,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  Cell
 } from "recharts";
 
-/**
- * Este componente:
- * - Lee de Search UI: searchTerm y filters (igual que las facets)
- * - Construye una query de Elasticsearch con esos filtros / búsqueda
- * - Pide AGGREGATIONS (no hits) sobre TODOS los pisos que cumplan la query
- *   - avg precio por barrio
- *   - distribución de habitaciones
- * - No depende de cuántos resultados se muestran (20/40/60)
- */
+const COLORS = [
+  "#003366",
+  "#174978",
+  "#2F5F8A",
+  "#46769B",
+  "#5E8CAD",
+  "#75A2BF"
+];
 
 function ChartsInner({ searchTerm, filters }) {
   const [avgPriceByNeighborhood, setAvgPriceByNeighborhood] = useState([]);
@@ -34,9 +34,6 @@ function ChartsInner({ searchTerm, filters }) {
       try {
         setLoading(true);
         setError("");
-
-        // Convertimos los filtros de Search UI a filtros de Elasticsearch
-        // filters: [{ field: "neighborhood", values: ["X", "Y"], type: "value" }, ...]
         const esFilters = (filters || []).flatMap((f) =>
           (f.values || []).map((value) => ({
             term: { [f.field]: value }
@@ -77,7 +74,7 @@ function ChartsInner({ searchTerm, filters }) {
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
-              size: 0, // no queremos documentos, solo agregaciones
+              size: 0,
               query: esQuery,
               aggs: {
                 avg_price_by_neighborhood: {
@@ -119,7 +116,6 @@ function ChartsInner({ searchTerm, filters }) {
             avg: Number(b.avg_price.value.toFixed(2))
           }));
 
-        // Distribución de habitaciones
         const bucketsRooms = aggs.rooms_distribution?.buckets || [];
         const roomsData = bucketsRooms.map((b) => ({
           rooms: `${b.key} hab`,
@@ -136,7 +132,6 @@ function ChartsInner({ searchTerm, filters }) {
       }
     }
 
-    // Cuando cambian búsqueda o filtros, recalculamos
     fetchAggs();
   }, [searchTerm, JSON.stringify(filters)]);
 
@@ -176,7 +171,14 @@ function ChartsInner({ searchTerm, filters }) {
             />
             <YAxis tick={{ fontSize: 10 }} />
             <Tooltip formatter={(value) => Number(value).toFixed(2)} />
-            <Bar dataKey="avg" />
+            <Bar dataKey="avg">
+              {avgPriceByNeighborhood.map((entry, index) => (
+                <Cell
+                  key={`bar-${entry.neighborhood}-${index}`}
+                  fill={COLORS[index % COLORS.length]}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -195,7 +197,14 @@ function ChartsInner({ searchTerm, filters }) {
               cy="50%"
               outerRadius={70}
               label
-            />
+            >
+              {roomsDistribution.map((entry, index) => (
+                <Cell
+                  key={`pie-${entry.rooms}-${index}`}
+                  fill={COLORS[index % COLORS.length]}
+                />
+              ))}
+            </Pie>
             <Tooltip />
             <Legend wrapperStyle={{ fontSize: "10px" }} />
           </PieChart>
@@ -205,7 +214,6 @@ function ChartsInner({ searchTerm, filters }) {
   );
 }
 
-// Conectamos la query a Search UI (props desde App.js)
 export default function Charts() {
   return (
     <WithSearch

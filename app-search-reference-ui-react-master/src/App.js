@@ -19,13 +19,13 @@ import {
 import { Layout } from "@elastic/react-search-ui-views";
 import "@elastic/react-search-ui-views/lib/styles/styles.css";
 
-// Conexión a Elasticsearch
+import "./App.css";
+
 const connector = new ElasticsearchAPIConnector({
   host: "http://localhost:9200",
   index: "pisos_index"
 });
 
-// Configuración
 const config = {
   apiConnector: connector,
   debug: true,
@@ -37,7 +37,6 @@ const config = {
       title: {}
     },
 
-    // Campos que devolvemos
     result_fields: {
       url: { raw: {} },
       listing_id: { raw: {} },

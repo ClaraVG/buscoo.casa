@@ -6,7 +6,7 @@ es = Elasticsearch("http://localhost:9200")
 INDEX_NAME = "pisos_index"
 
 # Mapping adaptado con embedding y campos de pisos
-{
+mapping = {
   "mappings": {
     "properties": {
       "url": { "type": "keyword" },
@@ -29,13 +29,6 @@ INDEX_NAME = "pisos_index"
     }
   }
 }
-
-# def create_index():
-#     if es.indices.exists(index=INDEX_NAME):
-#         print(f"Index {INDEX_NAME} already exists.")
-#     else:
-#         es.indices.create(index=INDEX_NAME, body=mapping)
-#         print(f"Index {INDEX_NAME} created successfully.")
 
 def create_index():
     if es.indices.exists(index=INDEX_NAME):

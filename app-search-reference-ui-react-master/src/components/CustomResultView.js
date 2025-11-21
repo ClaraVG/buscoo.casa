@@ -7,11 +7,9 @@ export default function CustomResultView({ result }) {
   const rooms = result?.rooms?.raw;
   const neighborhood = result?.neighborhood?.raw;
 
-  // Aseguramos que images es un array
   const imagesRaw = result?.images?.raw;
   const images = Array.isArray(imagesRaw) ? imagesRaw : [];
 
-  // Elegimos la primera imagen "buena"
   const mainImage =
     images.find((img) => typeof img === "string" && img.includes("fotos")) ||
     images[0] ||
