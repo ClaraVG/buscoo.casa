@@ -133,7 +133,7 @@ function ChartsInner({ searchTerm, filters }) {
     }
 
     fetchAggs();
-  }, [searchTerm, JSON.stringify(filters)]);
+  }, [searchTerm, filters]);
 
   if (loading) {
     return <div style={{ marginTop: "1rem" }}>Cargando gráficas…</div>;

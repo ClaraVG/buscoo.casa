@@ -12,6 +12,7 @@
     "recharts": "^3.4.1"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "rewire": "^6.0.0"
   },
   "scripts": {
