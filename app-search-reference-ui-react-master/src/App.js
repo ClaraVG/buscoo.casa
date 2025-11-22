@@ -8,6 +8,7 @@ import Charts from "./components/Charts";
 import CustomFacetView from "./components/CustomFacetView";
 import RoomsFacetView from "./components/RoomsFacetView";
 import BathroomsFacetView from "./components/BathroomsFacetView";
+// OJO: ya no usamos DynamicFacet
 
 import {
   ErrorBoundary,
@@ -25,9 +26,15 @@ import "@elastic/react-search-ui-views/lib/styles/styles.css";
 
 import "./App.css";
 
+// Conector bien configurado
 const connector = new ElasticsearchAPIConnector({
   host: "http://localhost:9200",
-  index: "pisos_index"
+  index: "pisos_index",
+  // pon la versión que tengas; si es ES 8.x, cambia a "8.0"
+  apiVersion: "7.17",
+  queryParameters: {
+    track_total_hits: true
+  }
 });
 
 const config = {
@@ -53,6 +60,7 @@ const config = {
       images: { raw: {} }
     },
 
+    // Todos los campos que queremos como facetas "OR"
     disjunctiveFacets: [
       "neighborhood",
       "rooms",
@@ -61,6 +69,7 @@ const config = {
       "price_eur"
     ],
 
+    // Definición de facetas que Search UI enviará a Elasticsearch
     facets: {
       neighborhood: {
         type: "value",
@@ -70,12 +79,12 @@ const config = {
       rooms: {
         type: "value",
         field: "rooms",
-        size: 10
+        size: 100
       },
       bathrooms: {
         type: "value",
         field: "bathrooms",
-        size: 10
+        size: 100
       },
       price_eur: {
         type: "range",
@@ -112,7 +121,11 @@ export default function App() {
                 autocompleteSuggestions={false}
                 autocompleteResults={false}
                 searchAsYouType={false}
-                inputView={({ getInputProps, getButtonProps, getAutocomplete }) => (
+                inputView={({
+                  getInputProps,
+                  getButtonProps,
+                  getAutocomplete
+                }) => (
                   <div className="sui-search-box">
                     <div className="sui-search-box__wrapper">
                       <input
@@ -135,47 +148,51 @@ export default function App() {
             }
             sideContent={
               <div>
+                {/* Habitaciones y Baños con facet + vistas personalizadas */}
                 <Facet
                   field="rooms"
                   label="Habitaciones"
                   filterType="any"
                   view={RoomsFacetView}
                 />
+
                 <Facet
                   field="bathrooms"
                   label="Baños"
                   filterType="any"
                   view={BathroomsFacetView}
                 />
+
+                {/* Superficie y Precio como rangos */}
                 <Facet
                   field="surface_m2"
                   label="Superficie (m²)"
                   filterType="any"
                   view={CustomFacetView}
+                  show={500}
                 />
                 <Facet
                   field="price_eur"
                   label="Precio (€)"
                   filterType="any"
                   view={CustomFacetView}
+                  show={500}
                 />
-                {/* Barrio al final */}
+
+                {/* Barrio como facet normal con CustomFacetView */}
                 <Facet
                   field="neighborhood"
                   label="Barrio"
                   filterType="any"
                   view={CustomFacetView}
+                  show={500}
                 />
               </div>
             }
             bodyHeader={
-              // IMPORTANTÍSIMO: un único contenedor para que Layout
-              // no meta Charts y PagingInfo en la misma fila
               <div style={{ width: "100%" }}>
-                {/* Fila 1: gráficas centradas */}
                 <Charts />
 
-                {/* Fila 2: "Showing X..." + "Show 20" */}
                 <div
                   style={{
                     display: "flex",
@@ -184,8 +201,34 @@ export default function App() {
                     marginTop: "5px"
                   }}
                 >
-                  <PagingInfo />
-                  <ResultsPerPage />
+                  <PagingInfo
+                    view={({ start, end, totalResults }) => (
+                      <span style={{ fontSize: "20px" }}>
+                        Mostrando {start} - {end} de {totalResults}
+                      </span>
+                    )}
+                  />
+
+                  <ResultsPerPage
+                    view={({ value, onChange, options }) => (
+                      <div className="sui-results-per-page" style={{ fontSize: "20px" }}>
+                        <label className="sui-results-per-page__label">
+                          Mostrar{" "}
+                          <select
+                            className="sui-results-per-page__select"
+                            value={value}
+                            onChange={(e) => onChange(Number(e.target.value))}
+                          >
+                            {options.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    )}
+                  />
                 </div>
               </div>
             }

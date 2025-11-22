@@ -1,4 +1,3 @@
-// Charts.js
 import React, { useEffect, useState } from "react";
 import { WithSearch } from "@elastic/react-search-ui";
 import {
@@ -24,7 +23,8 @@ const COLORS = [
   "#75A2BF"
 ];
 
-function ChartsInner({ searchTerm, filters }) {
+// 👇 antes recibías { searchTerm, filters }
+function ChartsInner({ resultSearchTerm, filters }) {
   const [avgPriceByNeighborhood, setAvgPriceByNeighborhood] = useState([]);
   const [roomsDistribution, setRoomsDistribution] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,21 +35,32 @@ function ChartsInner({ searchTerm, filters }) {
       try {
         setLoading(true);
         setError("");
+
         const esFilters = (filters || []).flatMap((f) =>
-          (f.values || []).map((value) => ({
-            term: { [f.field]: value }
-          }))
+          (f.values || []).map((value) => {
+            // rango { from, to }
+            if (value && typeof value === "object") {
+              const range = {};
+              if (value.from != null) range.gte = value.from;
+              if (value.to != null) range.lt = value.to;
+              return { range: { [f.field]: range } };
+            }
+
+            // valor normal
+            return { term: { [f.field]: value } };
+          })
         );
 
         let esQuery;
 
-        if (searchTerm && searchTerm.trim() !== "") {
+        // 👇 usamos resultSearchTerm en vez de searchTerm
+        if (resultSearchTerm && resultSearchTerm.trim() !== "") {
           esQuery = {
             bool: {
               must: [
                 {
                   multi_match: {
-                    query: searchTerm,
+                    query: resultSearchTerm,
                     fields: ["title", "neighborhood", "description"]
                   }
                 }
@@ -132,8 +143,9 @@ function ChartsInner({ searchTerm, filters }) {
       }
     }
 
+    // 👇 solo se ejecuta cuando cambia resultSearchTerm o los filtros
     fetchAggs();
-  }, [searchTerm, filters]);
+  }, [resultSearchTerm, filters]);
 
   if (loading) {
     return <div style={{ marginTop: "1rem" }}>Cargando gráficas…</div>;
@@ -156,7 +168,6 @@ function ChartsInner({ searchTerm, filters }) {
   }
 
   return (
-    // 👇 aquí el cambio: más margen inferior
     <div style={{ marginBottom: "3rem", width: "100%" }}>
       <div
         style={{
@@ -168,7 +179,7 @@ function ChartsInner({ searchTerm, filters }) {
         {/* Gráfica de barras */}
         <div style={{ flex: "0 0 55%", maxWidth: "700px" }}>
           <h3 style={{ fontSize: "14px", marginBottom: "8px" }}>
-            Precio medio por barrio (total filtrado)
+            Precio medio por Barrio (Total Filtrado)
           </h3>
           <div style={{ width: "100%", height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -193,7 +204,7 @@ function ChartsInner({ searchTerm, filters }) {
         {/* Gráfica de pastel */}
         <div style={{ flex: "0 0 30%", maxWidth: "350px" }}>
           <h3 style={{ fontSize: "14px", marginBottom: "8px" }}>
-            Distribución de habitaciones (total filtrado)
+            Distribución de Habitaciones (Total Filtrado)
           </h3>
           <div style={{ width: "100%", height: 250 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -228,8 +239,8 @@ function ChartsInner({ searchTerm, filters }) {
 export default function Charts() {
   return (
     <WithSearch
-      mapContextToProps={({ searchTerm, filters }) => ({
-        searchTerm,
+      mapContextToProps={({ resultSearchTerm, filters }) => ({
+        resultSearchTerm,
         filters
       })}
     >
