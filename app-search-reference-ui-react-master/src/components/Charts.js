@@ -1,250 +1,315 @@
+// src/components/Charts.js
 import React, { useEffect, useState } from "react";
-import { WithSearch } from "@elastic/react-search-ui";
+import { withSearch } from "@elastic/react-search-ui";
 import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid,
+  ResponsiveContainer,
   PieChart,
   Pie,
-  Legend,
-  ResponsiveContainer,
-  Cell
+  Cell,
+  Legend
 } from "recharts";
 
-const COLORS = [
-  "#003366",
-  "#174978",
-  "#2F5F8A",
-  "#46769B",
-  "#5E8CAD",
-  "#75A2BF"
-];
+const COLORS = ["#174978", "#356fa6", "#6b97c4", "#a8c1df", "#ccd9ee"];
 
-// 👇 antes recibías { searchTerm, filters }
-function ChartsInner({ resultSearchTerm, filters }) {
-  const [avgPriceByNeighborhood, setAvgPriceByNeighborhood] = useState([]);
-  const [roomsDistribution, setRoomsDistribution] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+// Construye una query de Elasticsearch basada en resultSearchTerm + filters de Search UI
+function buildEsQuery(resultSearchTerm, filters) {
+  const must = [];
+  const filterClauses = [];
 
-  useEffect(() => {
-    async function fetchAggs() {
-      try {
-        setLoading(true);
-        setError("");
+  // Búsqueda por texto (igual que Search UI: sobre "title")
+  if (resultSearchTerm && resultSearchTerm.trim() !== "") {
+    must.push({
+      multi_match: {
+        query: resultSearchTerm,
+        fields: ["title"],
+        type: "bool_prefix"
+      }
+    });
+  }
 
-        const esFilters = (filters || []).flatMap((f) =>
-          (f.values || []).map((value) => {
-            // rango { from, to }
-            if (value && typeof value === "object") {
-              const range = {};
-              if (value.from != null) range.gte = value.from;
-              if (value.to != null) range.lt = value.to;
-              return { range: { [f.field]: range } };
-            }
+  // Filtros (rooms, bathrooms, price_eur, surface_m2, neighborhood, ...)
+  (filters || []).forEach((f) => {
+    // f: { field, values, type }   type: "any" | "all"
+    if (!f.values || f.values.length === 0) return;
 
-            // valor normal
-            return { term: { [f.field]: value } };
-          })
-        );
-
-        let esQuery;
-
-        // 👇 usamos resultSearchTerm en vez de searchTerm
-        if (resultSearchTerm && resultSearchTerm.trim() !== "") {
-          esQuery = {
-            bool: {
-              must: [
-                {
-                  multi_match: {
-                    query: resultSearchTerm,
-                    fields: ["title", "neighborhood", "description"]
-                  }
-                }
-              ],
-              filter: esFilters
+    if (f.type === "any") {
+      // (A OR B OR C)
+      const should = f.values.map((v) => {
+        // Rango (price_eur, surface_m2)
+        if (v && (v.from !== undefined || v.to !== undefined)) {
+          const rangeBody = {};
+          if (v.from !== undefined && v.from !== null) rangeBody.gte = v.from;
+          if (v.to !== undefined && v.to !== null) rangeBody.lte = v.to;
+          return {
+            range: {
+              [f.field]: rangeBody
             }
           };
-        } else if (esFilters.length) {
-          esQuery = {
-            bool: {
-              filter: esFilters
-            }
-          };
-        } else {
-          esQuery = { match_all: {} };
         }
-
-        const response = await fetch(
-          "http://localhost:9200/pisos_index/_search",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              size: 0,
-              query: esQuery,
-              aggs: {
-                avg_price_by_neighborhood: {
-                  terms: {
-                    field: "neighborhood",
-                    size: 50
-                  },
-                  aggs: {
-                    avg_price: {
-                      avg: { field: "price_eur" }
-                    }
-                  }
-                },
-                rooms_distribution: {
-                  terms: {
-                    field: "rooms",
-                    size: 20
-                  }
-                }
-              }
-            })
+        // Valor discreto (rooms, bathrooms, neighborhood)
+        return {
+          term: {
+            [f.field]: v
           }
-        );
+        };
+      });
 
-        if (!response.ok) {
-          throw new Error(`Error ${response.status}`);
+      filterClauses.push({
+        bool: {
+          should,
+          minimum_should_match: 1
         }
+      });
+    } else if (f.type === "all") {
+      // (A AND B AND C)
+      f.values.forEach((v) => {
+        if (v && (v.from !== undefined || v.to !== undefined)) {
+          const rangeBody = {};
+          if (v.from !== undefined && v.from !== null) rangeBody.gte = v.from;
+          if (v.to !== undefined && v.to !== null) rangeBody.lte = v.to;
+          filterClauses.push({
+            range: {
+              [f.field]: rangeBody
+            }
+          });
+        } else {
+          filterClauses.push({
+            term: {
+              [f.field]: v
+            }
+          });
+        }
+      });
+    }
+  });
 
-        const json = await response.json();
-        const aggs = json.aggregations || {};
+  const bool = {};
+  if (must.length > 0) bool.must = must;
+  if (filterClauses.length > 0) bool.filter = filterClauses;
 
-        const bucketsNeighborhood =
-          aggs.avg_price_by_neighborhood?.buckets || [];
-        const avgData = bucketsNeighborhood
-          .filter((b) => b.avg_price && b.avg_price.value != null)
-          .map((b) => ({
-            neighborhood: b.key,
-            avg: Number(b.avg_price.value.toFixed(2))
-          }));
+  const query =
+    Object.keys(bool).length > 0
+      ? { bool }
+      : { match_all: {} };
 
-        const bucketsRooms = aggs.rooms_distribution?.buckets || [];
-        const roomsData = bucketsRooms.map((b) => ({
-          rooms: `${b.key} hab`,
-          count: b.doc_count
-        }));
-
-        setAvgPriceByNeighborhood(avgData);
-        setRoomsDistribution(roomsData);
-      } catch (e) {
-        console.error(e);
-        setError("Error cargando datos para las gráficas");
-      } finally {
-        setLoading(false);
+  return {
+    size: 0, // <-- MUY IMPORTANTE: no queremos documentos, solo agregaciones
+    query,
+    aggs: {
+      // Precio medio por barrio
+      neighborhood_avg_price: {
+        terms: {
+          field: "neighborhood",
+          size: 50
+        },
+        aggs: {
+          avg_price: {
+            avg: {
+              field: "price_eur"
+            }
+          }
+        }
+      },
+      // Distribución de habitaciones
+      rooms_distribution: {
+        terms: {
+          field: "rooms",
+          size: 20
+        }
       }
     }
+  };
+}
 
-    // 👇 solo se ejecuta cuando cambia resultSearchTerm o los filtros
-    fetchAggs();
-  }, [resultSearchTerm, filters]);
+function Charts({ resultSearchTerm, filters, totalResults }) {
+  const [priceByNeighborhood, setPriceByNeighborhood] = useState([]);
+  const [roomsDistribution, setRoomsDistribution] = useState([]);
+  const [loadingAggs, setLoadingAggs] = useState(false);
+  const [error, setError] = useState(null);
 
-  if (loading) {
-    return <div style={{ marginTop: "1rem" }}>Cargando gráficas…</div>;
+  useEffect(() => {
+    // Si aún no hay resultados (no se ha buscado), no hacemos nada
+    if (totalResults == null) {
+      return;
+    }
+
+    // Si la búsqueda actual no devuelve resultados, limpiamos gráficas
+    if (!totalResults || totalResults === 0) {
+      setPriceByNeighborhood([]);
+      setRoomsDistribution([]);
+      setError(null);
+      return;
+    }
+
+    setLoadingAggs(true);
+    setError(null);
+
+    const body = buildEsQuery(resultSearchTerm, filters);
+
+    fetch("http://localhost:9200/pisos_index/_search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        const aggs = data.aggregations || {};
+
+        // ----- Precio medio por barrio -----
+        const neighBuckets =
+          aggs.neighborhood_avg_price?.buckets || [];
+        const priceData = neighBuckets
+          .map((b) => ({
+            neighborhood: b.key,
+            avgPrice: b.avg_price?.value ?? null
+          }))
+          .filter((d) => d.avgPrice !== null);
+
+        // ----- Distribución de habitaciones -----
+        const roomBuckets = aggs.rooms_distribution?.buckets || [];
+        const roomsData = roomBuckets
+          .map((b) => ({
+            rooms: b.key,
+            count: b.doc_count
+          }))
+          .sort((a, b) => a.rooms - b.rooms)
+          .map((d) => ({
+            name: `${d.rooms} hab`,
+            value: d.count
+          }));
+
+        setPriceByNeighborhood(priceData);
+        setRoomsDistribution(roomsData);
+      })
+      .catch((e) => {
+        console.error("Error obteniendo agregaciones para Charts:", e);
+        setError("No se pudieron cargar las gráficas.");
+        setPriceByNeighborhood([]);
+        setRoomsDistribution([]);
+      })
+      .finally(() => {
+        setLoadingAggs(false);
+      });
+  }, [resultSearchTerm, filters, totalResults]);
+
+  if (loadingAggs) {
+    return null; // si quieres, puedes poner un spinner aquí
   }
 
   if (error) {
     return (
-      <div style={{ marginTop: "1rem", color: "red" }}>
+      <div style={{ marginBottom: "16px", textAlign: "center", color: "red" }}>
         {error}
       </div>
     );
   }
 
-  if (!avgPriceByNeighborhood.length && !roomsDistribution.length) {
+  if (!totalResults || totalResults === 0) {
     return (
-      <div style={{ marginTop: "1rem" }}>
+      <div style={{ marginBottom: "16px", textAlign: "center" }}>
+        No hay datos para las gráficas con estos filtros.
+      </div>
+    );
+  }
+
+  if (
+    priceByNeighborhood.length === 0 &&
+    roomsDistribution.length === 0
+  ) {
+    return (
+      <div style={{ marginBottom: "16px", textAlign: "center" }}>
         No hay datos para las gráficas con estos filtros.
       </div>
     );
   }
 
   return (
-    <div style={{ marginBottom: "3rem", width: "100%" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "96px"
-        }}
-      >
-        {/* Gráfica de barras */}
-        <div style={{ flex: "0 0 55%", maxWidth: "700px" }}>
-          <h3 style={{ fontSize: "14px", marginBottom: "8px" }}>
-            Precio medio por Barrio (Total Filtrado)
-          </h3>
-          <div style={{ width: "100%", height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={avgPriceByNeighborhood}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="neighborhood" hide={false} tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(value) => Number(value).toFixed(2)} />
-                <Bar dataKey="avg">
-                  {avgPriceByNeighborhood.map((entry, index) => (
-                    <Cell
-                      key={`bar-${entry.neighborhood}-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+    <div style={{ display: "flex", gap: "32px", marginBottom: "16px" }}>
+      {/* Gráfica de barras: Precio medio por barrio */}
+      <div style={{ flex: 2 }}>
+        <h4 style={{ textAlign: "center", marginBottom: "8px" }}>
+          Precio medio por Barrio (Total Filtrado)
+        </h4>
+        {priceByNeighborhood.length === 0 ? (
+          <div style={{ textAlign: "center" }}>Sin datos de precio.</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={priceByNeighborhood}>
+              <XAxis
+                dataKey="neighborhood"
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                interval={0}
+              />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="avgPrice">
+                {priceByNeighborhood.map((entry, index) => (
+                  <Cell
+                    key={entry.neighborhood}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
 
-        {/* Gráfica de pastel */}
-        <div style={{ flex: "0 0 30%", maxWidth: "350px" }}>
-          <h3 style={{ fontSize: "14px", marginBottom: "8px" }}>
-            Distribución de Habitaciones (Total Filtrado)
-          </h3>
-          <div style={{ width: "100%", height: 250 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={roomsDistribution}
-                  dataKey="count"
-                  nameKey="rooms"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={70}
-                  label
-                >
-                  {roomsDistribution.map((entry, index) => (
-                    <Cell
-                      key={`pie-${entry.rooms}-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: "10px" }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      {/* Gráfica de tarta: Distribución de habitaciones */}
+      <div style={{ flex: 1 }}>
+        <h4 style={{ textAlign: "center", marginBottom: "8px" }}>
+          Distribución de Habitaciones (Total Filtrado)
+        </h4>
+        {roomsDistribution.length === 0 ? (
+          <div style={{ textAlign: "center" }}>Sin datos de habitaciones.</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={roomsDistribution}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                label
+              >
+                {roomsDistribution.map((entry, index) => (
+                  <Cell
+                    key={entry.name}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Legend />
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
 }
 
-export default function Charts() {
-  return (
-    <WithSearch
-      mapContextToProps={({ resultSearchTerm, filters }) => ({
-        resultSearchTerm,
-        filters
-      })}
-    >
-      {(props) => <ChartsInner {...props} />}
-    </WithSearch>
-  );
-}
+// Conectamos Charts al estado de Search UI usando resultSearchTerm
+export default withSearch(
+  ({ resultSearchTerm, filters, totalResults }) => ({
+    resultSearchTerm,
+    filters,
+    totalResults
+  })
+)(Charts);

@@ -8,7 +8,9 @@ import Charts from "./components/Charts";
 import CustomFacetView from "./components/CustomFacetView";
 import RoomsFacetView from "./components/RoomsFacetView";
 import BathroomsFacetView from "./components/BathroomsFacetView";
-// OJO: ya no usamos DynamicFacet
+import SurfaceFacetView from "./components/SurfaceFacetView";
+import PriceFacetView from "./components/PriceFacetView";
+import NeighborhoodFacetView from "./components/NeighborhoodFacetView";
 
 import {
   ErrorBoundary,
@@ -26,11 +28,9 @@ import "@elastic/react-search-ui-views/lib/styles/styles.css";
 
 import "./App.css";
 
-// Conector bien configurado
 const connector = new ElasticsearchAPIConnector({
   host: "http://localhost:9200",
   index: "pisos_index",
-  // pon la versión que tengas; si es ES 8.x, cambia a "8.0"
   apiVersion: "7.17",
   queryParameters: {
     track_total_hits: true
@@ -60,7 +60,6 @@ const config = {
       images: { raw: {} }
     },
 
-    // Todos los campos que queremos como facetas "OR"
     disjunctiveFacets: [
       "neighborhood",
       "rooms",
@@ -69,12 +68,11 @@ const config = {
       "price_eur"
     ],
 
-    // Definición de facetas que Search UI enviará a Elasticsearch
     facets: {
       neighborhood: {
         type: "value",
         field: "neighborhood",
-        size: 50
+        size: 100
       },
       rooms: {
         type: "value",
@@ -90,9 +88,9 @@ const config = {
         type: "range",
         field: "price_eur",
         ranges: [
-          { from: 0, to: 700, name: "≤ 700€" },
-          { from: 700, to: 900, name: "700€ - 900€" },
-          { from: 900, to: 1100, name: "900€ - 1100€" },
+          { to: 700, name: "≤ 700€" },
+          { from: 701, to: 900, name: "700€ - 900€" },
+          { from: 901, to: 1099, name: "900€ - 1100€" },
           { from: 1100, name: "≥ 1100€" }
         ]
       },
@@ -101,9 +99,9 @@ const config = {
         field: "surface_m2",
         ranges: [
           { to: 50, name: "≤ 50 m²" },
-          { from: 50, to: 80, name: "50 - 80 m²" },
-          { from: 80, to: 120, name: "80 - 120 m²" },
-          { from: 120, name: "≥ 120 m²" }
+          { from: 51, to: 80, name: "50 - 80 m²" },
+          { from: 81, to: 120, name: "80 - 120 m²" },
+          { from: 121, name: "≥ 120 m²" }
         ]
       }
     }
@@ -121,78 +119,48 @@ export default function App() {
                 autocompleteSuggestions={false}
                 autocompleteResults={false}
                 searchAsYouType={false}
-                inputView={({
-                  getInputProps,
-                  getButtonProps,
-                  getAutocomplete
-                }) => (
-                  <div className="sui-search-box">
-                    <div className="sui-search-box__wrapper">
-                      <input
-                        {...getInputProps({
-                          placeholder: "Buscar pisos..."
-                        })}
-                        className="sui-search-box__text-input"
-                      />
-                      {getAutocomplete && getAutocomplete()}
-                    </div>
-                    <input
-                      {...getButtonProps({
-                        value: "Buscar"
-                      })}
-                      className="sui-search-box__submit button"
-                    />
-                  </div>
-                )}
               />
             }
             sideContent={
               <div>
-                {/* Habitaciones y Baños con facet + vistas personalizadas */}
                 <Facet
                   field="rooms"
                   label="Habitaciones"
                   filterType="any"
                   view={RoomsFacetView}
+                  show={100}
                 />
-
                 <Facet
                   field="bathrooms"
                   label="Baños"
                   filterType="any"
                   view={BathroomsFacetView}
+                  show={100}
                 />
-
-                {/* Superficie y Precio como rangos */}
                 <Facet
                   field="surface_m2"
                   label="Superficie (m²)"
                   filterType="any"
-                  view={CustomFacetView}
-                  show={500}
+                  view={SurfaceFacetView}
                 />
                 <Facet
                   field="price_eur"
                   label="Precio (€)"
                   filterType="any"
-                  view={CustomFacetView}
-                  show={500}
+                  view={PriceFacetView}
                 />
-
-                {/* Barrio como facet normal con CustomFacetView */}
                 <Facet
                   field="neighborhood"
                   label="Barrio"
                   filterType="any"
-                  view={CustomFacetView}
-                  show={500}
+                  view={NeighborhoodFacetView}
+                  show={100}
                 />
               </div>
             }
             bodyHeader={
               <div style={{ width: "100%" }}>
                 <Charts />
-
                 <div
                   style={{
                     display: "flex",
@@ -208,10 +176,12 @@ export default function App() {
                       </span>
                     )}
                   />
-
                   <ResultsPerPage
                     view={({ value, onChange, options }) => (
-                      <div className="sui-results-per-page" style={{ fontSize: "20px" }}>
+                      <div
+                        className="sui-results-per-page"
+                        style={{ fontSize: "20px" }}
+                      >
                         <label className="sui-results-per-page__label">
                           Mostrar{" "}
                           <select

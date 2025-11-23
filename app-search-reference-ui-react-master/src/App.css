@@ -4,13 +4,64 @@ body,
   height: 100%;
 }
 
+/* ================================
+   FONTS & BASE STYLES
+================================ */
+
+:root {
+  --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+/* Misma fuente para toda la app */
+body,
+.App,
+.sui-layout,
+.sui-layout-body,
+.sui-layout-header,
+.sui-layout-sidebar,
+.sui-search-box,
+.sui-results-container,
+.sui-result,
+.sui-facet,
+.sui-paging-info,
+.sui-results-per-page,
+.sui-paging,
+button,
+input,
+select {
+  font-family: var(--app-font-family) !important;
+}
+
+/* Tamaño base + scroll forzado + reset de margen */
 body {
   margin: 0;
   /* Fuerza que la barra de scroll vertical esté siempre */
   overflow-y: scroll;
+  font-size: 14px;
 }
 
-/* Estilos del botón de búsqueda */
+/* Títulos principales */
+h1,
+h2,
+.sui-result__title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Textos secundarios */
+.sui-result__details,
+.sui-facet__values,
+.sui-paging-info,
+.sui-results-per-page {
+  font-size: 13px;
+}
+
+/* ================================
+   SEARCH BOX (BOTÓN + INPUT)
+================================ */
+
+/* Botón de búsqueda */
 input.button.sui-search-box__submit {
   background-color: #174978 !important;
   background-image: none !important;
@@ -28,17 +79,7 @@ input.button.sui-search-box__submit:hover {
   border-color: #003366 !important;
 }
 
-/* Título de la card */
-.result-card a h3 {
-  color: #174978 !important;
-  text-decoration: none !important;
-}
-
-.result-card a h3:hover {
-  color: #003366 !important;
-}
-
-/* Centrar barra de búsqueda */
+/* Centrar la barra de búsqueda */
 .sui-layout-header__inner {
   width: 100% !important;
   display: flex !important;
@@ -60,4 +101,18 @@ input.button.sui-search-box__submit:hover {
 
 input.button.sui-search-box__submit {
   flex-shrink: 0 !important;
+}
+
+/* ================================
+   RESULT CARDS
+================================ */
+
+/* Título de cada piso */
+.result-card a h3 {
+  color: #174978 !important;
+  text-decoration: none !important;
+}
+
+.result-card a h3:hover {
+  color: #003366 !important;
 }
