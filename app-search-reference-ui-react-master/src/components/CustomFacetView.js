@@ -4,7 +4,7 @@ import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
 
 export default function CustomFacetView(props) {
-  const { label, options = [], onChange, onRemove } = props;
+  const { label, options = [], onChange, onRemove, field } = props;
 
   // ==========================
   // ¿Es faceta de rango (precio, superficie...)? -> value = { from, to, name? }
@@ -16,7 +16,9 @@ export default function CustomFacetView(props) {
     (Object.prototype.hasOwnProperty.call(firstVal, "from") ||
       Object.prototype.hasOwnProperty.call(firstVal, "to"));
 
-  // Inferimos el nombre del campo de ES según el label de la faceta
+  // Inferimos el nombre del campo de ES:
+  // 1) si nos lo pasan por props.field (wrapper), usamos ese
+  // 2) si no, intentamos deducirlo por el label
   const inferFieldFromLabel = () => {
     if (!label) return null;
     const lower = label.toLowerCase();
@@ -25,7 +27,7 @@ export default function CustomFacetView(props) {
     return null;
   };
 
-  const esField = inferFieldFromLabel();
+  const esField = field || inferFieldFromLabel();
 
   // ------- Estado para facetas de rango (price_eur, surface_m2) -------
   const [globalMin, setGlobalMin] = useState(null);
@@ -88,14 +90,12 @@ export default function CustomFacetView(props) {
   const applyRangeFilter = (min, max) => {
     if (!isRangeFacet) return;
 
-    const value = {};
-    value.from = min;
-    value.to = max;
+    const value = { from: min, to: max };
 
     const unit =
       esField === "price_eur" ? "€" : esField === "surface_m2" ? " m²" : "";
 
-    let name = `${min}${unit} - ${max}${unit}`;
+    const name = `${Math.round(min)}${unit} - ${Math.round(max)}${unit}`;
 
     onChange({
       ...value,
