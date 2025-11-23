@@ -1,0 +1,535 @@
+\documentclass[a4paper,10pt]{extarticle}
+\usepackage[margin=3.5cm,bottom=1.2in,top=1.4in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{booktabs} % Mejoras estéticas para tablas
+\usepackage{colortbl} % Para colorear celdas/filas
+\usepackage[table]{xcolor} % Asegura la compatibilidad de colores
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{eurosym}
+
+\definecolor{darkblue}{RGB}{0,0,139}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=darkblue, 
+    urlcolor=darkblue,  
+    citecolor=darkblue,  
+    filecolor=darkblue 
+}
+
+\let\oldtableofcontents\tableofcontents
+\renewcommand{\tableofcontents}{
+    {\hypersetup{linkcolor=black}
+    \oldtableofcontents
+    }
+}
+
+
+
+\def\myauthor{
+  Clara Valle Gómez\\
+  Antón Soto Ríos\\
+  Adrián Rego Criado
+}
+
+\pagestyle{fancy}
+\lhead{www.pisos.com}
+\rhead{RIWS}
+\cfoot{\thepage}
+
+\begin{document}
+
+\begin{titlepage}
+    {$\ $\\[3em]}
+    
+    \centering
+    {\includegraphics[width=0.8\textwidth]{img/03_Simbolo_logo_cor.png_2063069294.png}\\[5em]}
+    \centering
+    {\LARGE \textbf{Práctica RIWS - Scraping \& Crawling}\\[4em]}
+    
+    \includegraphics[width=0.6\textwidth]{img/logo.png}\\[6em]
+    
+    {\Huge \textbf{\href{https://github.com/ClaraVG/buscoo.casa}{Repositorio}}\\[2em]}
+    {\large \myauthor\\[2em]}
+    {\large \today\\[3em]}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Motivación}
+
+La situación del mercado de alquiler en la zona de A Coruña ha sido nuestra principal motivación para desarrollar esta aplicación de scraping y crawling, la cual permite monitorizar pisos disponibles en la ciudad a partir de los datos publicados en pisos.com. El mercado del alquiler en la ciudad ha sido declarado como tensionado (la demanda de viviendas supera con creces la oferta disponible), lo que aumenta los precios y dificulta que muchas personas jóvenes puedan independizarse. Ante esta realidad, disponer de una herramienta que recopile automáticamente todos los anuncios de alquiler de la zona, permite a los usuarios acceder a la información de forma más directa, acompañada de filtros específicos y gráficas que faciliten entender, de un solo vistazo, qué barrios son más económicos o qué opciones se ajustan mejor a un determinado presupuesto.
+
+Centralizar los datos y la incorporación de filtros dinámicos hace posible comparar precios, zonas, número de habitaciones y otras características sin tener que navegar manualmente por la página una y otra vez, lo que agiliza la toma de decisiones, tanto para uso personal como para ver la situación del mercado.
+
+Identificar una web que permitiera ser analizada de manera automática también fue un desafío, ya que muchas plataformas inmobiliarias implementan múltiples medidas para evitar el scraping. Por ello, pisos.com se presentó como la opción más viable para el desarrollo del proyecto.
+
+Es importante recalcar que cualquier sistema de scraping debe realizarse respetando los términos de uso del sitio web y su archivo robots.txt, así como limitando la frecuencia de las consultas para no perjudicar el funcionamiento de la página.
+
+En conclusión, una aplicación de este tipo ofrece una visión clara y accesible del mercado de alquiler en A Coruña, a la vez que ayuda a elegir de forma más informada un lugar adecuado para vivir en la ciudad.
+
+\section{Desarrollo}
+
+El desarrollo de este proyecto se divide en varias fases: la obtención de la información original mediante Scrapy, la indexación de estos datos en índices de Elasticsearch y el servidor encargado de suministrarlos y, por último, la interfaz web que se comunica con dicho servidor para obtener, agrupar y filtrar la información de forma conveniente.
+
+\subsection{Scrapy}
+
+% El spider \texttt{pisos\_live.py} está diseñado para extraer información de pisos en alquiler desde \texttt{pisos.com}, en concreto desde la página de alquiler de pisos en A Coruña. A partir de esta lista de pisos de alquiler podemos acceder a los enlaces que llevan a la ficha concreta de cada piso, donde se encuentra detallada toda la información.
+
+% Este programa es un \textbf{spider de Scrapy}, diseñado para recorrer automáticamente las páginas de listados de pisos y para extraer de manera estructurada la información de cada ficha de inmueble. Hemos implementado las siguientes funcionalidades:
+
+% \begin{itemize}
+%     \item \textbf{Inicio y búsqueda de fichas:} 
+%     \begin{itemize}
+%         \item Busca los enlaces que llevan a cada ficha de piso. 
+%         \item Solo sigue enlaces que cumplen patrones de URL específicos para evitar páginas irrelevantes.
+%     \end{itemize}
+
+%     \item \textbf{Extracción de información:}
+%     \begin{itemize}
+%         \item Primero intenta obtener datos estructurados en formato \textbf{JSON-LD} que la propia página proporciona. Esto incluye:
+%         \begin{itemize}
+%             \item Título y descripción del piso.
+%             \item Precio en euros.
+%             \item Dirección completa: calle, barrio, municipio y provincia.
+%             \item Imágenes del piso...
+%         \end{itemize}
+%         \item Si algún dato no está en JSON-LD, el spider lo busca directamente en la página:
+%         \begin{itemize}
+%             \item Precio buscando el símbolo \euro.
+%             \item Número de habitaciones, baños y superficie a partir de palabras clave.
+%             \item Planta, ascensor o si es exterior/interior según palabras del contenido.
+%             \item Barrio desde los enlaces de navegación o el nombre de la URL.
+%         \end{itemize}
+%     \end{itemize}
+
+%     \item \textbf{Normalización y filtrado:}
+%     \begin{itemize}
+%         \item Convierte precios, superficies y coordenadas a números.
+%         \item Normaliza fechas de publicación a formato \texttt{YYYY-MM-DD}.
+%         \item Descarta fichas sin título o sin precio.
+%     \end{itemize}
+
+%     \item \textbf{Paginación:}
+%     \begin{itemize}
+%         \item Tras procesar todos los pisos de una página, sigue el enlace a la página siguiente del listado.
+%         \item Repite el proceso hasta no encontrar más páginas.
+%     \end{itemize}
+% \end{itemize}
+
+% El objetivo final de este spider es obtener la información completa desde el listado de pisos hasta la ficha de cada uno para obtener información importante, desde el título hasta las imágenes.
+
+El spider \texttt{pisos\_live.py} está diseñado para extraer información de pisos en alquiler desde \texttt{pisos.com}, concretamente desde la página de alquiler de pisos en A Coruña. A partir de esta lista de pisos de alquiler, se accede a los enlaces que llevan a la ficha concreta de cada piso, donde se encuentra la información detallada.
+
+Este programa es un \textbf{spider de Scrapy}, diseñado para recorrer automáticamente las páginas de listados de pisos y extraer de manera estructurada la información de cada ficha de inmueble. Hemos implementado las siguientes funcionalidades:
+
+\begin{itemize}
+    \item \textbf{Inicio y búsqueda de pisos:} 
+    \begin{itemize}
+        \item Busca los enlaces que llevan a cada ficha de piso a partir de los enlaces de la página, atributos \texttt{data-href} y scripts.
+        \item Solo sigue URLs que cumplen ciertos patrones para evitar páginas irrelevantes.
+    \end{itemize}
+
+    \item \textbf{Extracción de información:}
+    \begin{itemize}
+        \item Primero intenta obtener datos estructurados en formato \textbf{JSON-LD} que la propia página proporciona. Esto incluye:
+        \begin{itemize}
+            \item Título y descripción del piso.
+            \item Precio en euros.
+            \item Dirección completa: calle, barrio, municipio y provincia.
+            \item Imágenes principales del piso.
+        \end{itemize}
+        \item Si algún dato no está en JSON-LD, el spider lo busca directamente en la página:
+        \begin{itemize}
+            \item Precio buscando el símbolo \euro.
+            \item Número de habitaciones, baños y superficie a partir de palabras clave.
+            \item Barrio desde el nombre de la URL.
+            \item Título del piso desde encabezados.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Normalización y filtrado:}
+    \begin{itemize}
+        \item Convierte precios y superficies a números.
+        \item Descarta fichas sin título o sin precio.
+    \end{itemize}
+
+    \item \textbf{Paginación:}
+    \begin{itemize}
+        \item Tras procesar todos los pisos de una página, sigue el enlace a la página siguiente del listado.
+        \item Repite el proceso hasta no encontrar más páginas.
+    \end{itemize}
+\end{itemize}
+
+En resumen, este spider obtiene la información completa desde el listado de pisos hasta la ficha de cada uno, incluyendo título, descripción, precio, dirección e imágenes, entre otros. Esta información se organiza según la estructura definida en \texttt{items.py}, que especifica los campos que se extraen de cada piso, permitiendo exportar los datos de forma estructurada.\\
+
+El archivo \texttt{settings.py} centraliza las configuraciones que afectan a los spiders. De esta forma, nos aseguramos que se respeten las normas de \texttt{robots.txt} (\texttt{ROBOTSTXT\_OBEY = True}) y establecemos una velocidad para realizar las solicitudes (\texttt{DOWNLOAD\_DELAY = 0.5}) de forma que no se perjudique el correcto funcionamiento de la página. Además, define un \texttt{USER\_AGENT} y encabezados HTTP por defecto (\texttt{DEFAULT\_REQUEST\_HEADERS}) para que el bot se identifique y envíe las cabeceras indicadas en cada solicitud.
+
+\subsection{Elasticsearch}
+
+\subsubsection{\texttt{create\_index.py}}
+Este archivo se encarga de crear y configurar el índice de Elasticsearch \texttt{pisos\_index}. Sus funcionalidades principales son:
+
+\begin{itemize}
+    \item Inicializa un cliente de \texttt{Elasticsearch} apuntando a \texttt{http://localhost:9200}.
+    \item Define un \textbf{mapping} que incluye únicamente los campos implementados en el código:
+    \begin{itemize}
+        \item Campos de texto: \texttt{title}.
+        \item Campos categóricos: \texttt{url}, \texttt{listing\_id}, \texttt{neighborhood}, \texttt{images}.
+        \item Campos numéricos: \texttt{price\_eur}, \texttt{rooms}, \texttt{bathrooms}, \texttt{surface\_m2}.
+    \end{itemize}
+    \item Implementa la función \texttt{create\_index()}, que borra el índice si ya existe y lo crea nuevamente con el mapping definido.
+\end{itemize}
+
+\subsubsection{\texttt{insert\_docs.py}}
+Este archivo inserta los documentos contenidos en \texttt{pisos\_a\_coruna.jsonl} en el índice \texttt{pisos\_index} de Elasticsearch.
+
+\begin{itemize}
+    \item Establece una conexión con \texttt{Elasticsearch} apuntando a \texttt{http://localhost:9200}.
+    \item Implementa la función \texttt{load\_jsonl(file\_path)}, que:
+    \begin{itemize}
+        \item Lee un archivo en formato \texttt{JSONL} línea por línea.
+        \item Convierte cada línea en un diccionario de Python mediante \texttt{json.loads}.
+        \item Devuelve una lista de documentos.
+    \end{itemize}
+    \item Implementa la función \texttt{insert\_docs(file\_path)}, que:
+    \begin{itemize}
+        \item Carga los documentos usando \texttt{load\_jsonl}.
+        \item Inserta todos los documentos en Elasticsearch mediante \texttt{helpers.bulk}.
+        \item Imprime el número total de documentos insertados.
+    \end{itemize}
+\end{itemize}
+
+De esta forma, se insertan de manera eficiente todos los pisos en el índice \texttt{pisos\_index}, permitiendo su consulta y análisis posterior mediante el servidor de Elasticsearch.
+
+\subsubsection{\texttt{search\_docs.py}}
+
+No se usa realmente. La lógica de la búsqueda y filtrado está implementada en el frontend, pero sirve para comprobar que se pueden filtrar los pisos insertados de forma correcta.
+
+\subsection{Elasticsearch UI}
+
+Para el desarrollo de la interfaz hemos desarrollado diferentes archivos clave para interactuar con el índice creado anteriormente y el desarrollo de diferentes componentes para la correcta visualización de estos.
+
+\subsubsection{\texttt{Engine.json}}
+
+El archivo \texttt{engine.json} define la configuración de un motor de búsqueda para el índice de pisos creado anteriormente \texttt{pisos\_index}, indicando cómo se deben buscar, mostrar y filtrar los datos. Sus principales componentes son:
+
+\begin{itemize}
+    \item \textbf{Campos de búsqueda:}
+    \begin{itemize}
+        \item \texttt{searchFields}: usa \texttt{title} para la búsqueda por texto.
+    \end{itemize}
+
+    \item \textbf{Campos de resultados:}
+    \begin{itemize}
+        \item \texttt{resultFields}: campos que se mostrarán en los resultados, como título, barrio, precio, habitaciones, baños, superficie, imágenes y URL.
+        \item \texttt{titleField}, \texttt{urlField}, \texttt{thumbnailField}: campos específicos para mostrar el título, el enlace y la imagen de miniatura en la interfaz.
+    \end{itemize}
+
+    \item \textbf{Ordenamiento y filtrado:}
+    \begin{itemize}
+        \item \texttt{sortFields}: campos disponibles para ordenar los resultados.
+        \item \texttt{facets}: campos utilizados para filtros o facetas en la búsqueda, como barrio, número de habitaciones, baños, precio o superficie.
+    \end{itemize}
+\end{itemize}
+
+De esta forma se proporciona la información necesaria para que interfaz pueda consultar el motor de búsqueda y permitir filtrado y ordenamiento de los pisos.
+
+\subsubsection{\texttt{App.js}}
+
+El archivo \texttt{App.js} implementa la interfaz web de búsqueda y visualización de pisos utilizando \texttt{React 18} junto con \texttt{@elastic/react-search-ui} y un conector a Elasticsearch. Esta interfaz permite a los usuarios buscar, filtrar, ordenar y explorar los resultados del índice \texttt{pisos\_index} de forma sencilla.
+
+\begin{itemize}
+    \item \textbf{Conexión a Elasticsearch:} Se establece mediante \texttt{ElasticsearchAPIConnector} en el puerto 9200 que contiene el índice \texttt{pisos\_index}.
+
+    \item \textbf{Configuración de búsqueda:}
+    \begin{itemize}
+        \item \texttt{search\_fields}: define los campos sobre los que se realiza la búsqueda de texto, en este caso \texttt{title}.
+        \item \texttt{result\_fields}: indica qué campos del documento se muestran en los resultados, como \texttt{listing\_id}, \texttt{title}, \texttt{price\_eur}, \texttt{rooms}, \texttt{bathrooms}, \texttt{surface\_m2}, \texttt{neighborhood}, \texttt{images} y \texttt{url}.
+        \item \texttt{facets} y \texttt{disjunctiveFacets}: permiten filtrar los resultados mediante facetas para barrio, número de habitaciones, baños, precio y superficie.
+    \end{itemize}
+
+    \item \textbf{La interfaz está constituida por los siguientes elementos:}
+    \begin{itemize}
+        \item \texttt{SearchBox}: barra de búsqueda para introducir consultas de texto.
+        \item \texttt{Facet}: componentes para filtrar por habitaciones, baños, superficie, precio y barrio usando componentes personalizados, integrados en \texttt{CustomFacetView}.
+        \item \texttt{Results}: muestra los resultados de la lista usando el componente \texttt{CustomResultView}
+        \item \texttt{Charts}: visualiza datos con gráficos usado el componente \texttt{Charts}.
+        \item \texttt{PagingInfo}, \texttt{ResultsPerPage} y \texttt{Paging}: permiten la navegación y paginación de resultados.
+    \end{itemize}
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{img/aainicio.png}
+    \caption{Interfaz sin aplicar filtros de la aplicación web}
+    \label{fig:inicio}
+\end{figure}
+
+\subsubsection{\texttt{CustomResultView}}
+
+El componente \texttt{CustomResultView} es responsable de renderizar cada uno de los resultados de búsqueda obtenidos desde Elasticsearch, presentándolos en forma de lista como ``tarjetas''. Para ello, extrae del objeto \texttt{result} los campos relevantes como el título, el precio, las habitaciones, los baños, la superficie, el barrio y la URL del anuncio. También procesa el campo \texttt{images} para seleccionar una imagen principal válida, asegurando que cada tarjeta muestre una fotografía representativa del piso.
+
+El diseño del componente organiza la tarjeta en dos columnas: una sección izquierda destinada a la imagen y otra derecha en la que muestra los datos concretos de la propiedad como el título, barrio, precio o número de habitaciones y baños, utilizando iconos para mejorar la legibilidad.
+
+\subsubsection{\texttt{CustomFacetView}}
+
+El componente \texttt{CustomFacetView} proporciona una vista personalizada para mostrar filtros en la interfaz.
+
+\begin{itemize}
+    \item \textbf{Filtros con slider}
+    \begin{itemize}
+        \item Si el filtro es un rango, obtiene el valor mínimo y máximo presentes en el índice.
+        \item Usamos la librería \texttt{rc-slider} para una sencilla implementación
+        \item Cada vez que el usuario mueve el slider, se actualiza el filtro y se hace la búsqueda.
+    \end{itemize}
+
+    \item \textbf{Filtros con checkbox}
+    \begin{itemize}
+        \item Muestra una lista de opciones con casillas de selección.
+        \item Cada opción incluye el valor y el número de resultados asociados.
+        \item Las opciones que tienen un contador igual a cero aparecen desactivadas.
+    \end{itemize}
+\end{itemize}
+
+Este componente es la base para aplicar filtros, que pueden implementar otros componentes como \texttt{DynamicValueFacetView}.
+
+
+\subsubsection{\texttt{DynamicValueFacetView}}
+
+El componente encargado de la lógica de los filtros es \texttt{DynamicValueFacetView}, que implementa la función \texttt{createDynamicValueFacetView()}, la cual devuelve un componente que cambia los filtros (\textit{facets}) dinámicamente, incluso cuando los resultados de búsqueda cambian. Esto permite evitar la desaparición o reordenación (que a la vista produce un cambio muy brusco) de opciones al aplicar o eliminar filtros. Esta función permite:
+
+\begin{itemize}
+    \item \textbf{Guardado de filtros:} Guarda todos los valores que existen sin filtrar para que al hacer una búsqueda o aplicar filtros estos no desaparezcan de la lista.
+
+    \item \textbf{Fusión de opciones nuevas con las originales:}  
+    A partir de los valores iniciales, se genera una lista que combina:
+    \begin{itemize}
+        \item las opciones actuales devueltas por la búsqueda o filtrado
+        \item los valores que no corresponden con la búsqueda o filtrado se muestran a 0 y con un color gris
+    \end{itemize}
+    
+    \item \textbf{Ordenación:}  
+    Las opciones se ordenan numérica o alfabéticamente.
+\end{itemize}
+
+% Finalmente este componente se integra con \texttt{CustomFacetView} para su correcto funcionamiento. Otros componentes implementan esta función para funcionar, como son \texttt{BathroomsFacetView}, \texttt{NeighborhoodFacetView}, \texttt{PriceFacetView} o \texttt{RoomsFacetView}
+
+Finalmente, este componente se integra con \texttt{CustomFacetView} para proporcionar la visualización final de cada filtro. Todos los filtros de la aplicación utilizan este mismo mecanismo, ya que implementan la función \texttt{createDynamicValueFacetView} para tener valores dinámicos. De esta forma, los componentes \texttt{BathroomsFacetView}, \texttt{NeighborhoodFacetView}, \texttt{PriceFacetView}, \texttt{RoomsFacetView} o \texttt{SurfaceFacetView} no contienen lógica propia, sino que simplemente instancian la vista generada por esta función.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{img/aafiltrado.png}
+    \caption{Interfaz con búsqueda y filtros aplicados}
+    \label{fig:filtros}
+\end{figure}
+
+\subsubsection{\texttt{Charts.js}}
+
+Por último, el componente \texttt{Charts.js} se encarga de generar las gráficas estadísticas a partir de los datos almacenados en el índice de Elasticsearch, usando la librería \texttt{recharts}. El componente se actualiza con el estado de la búsqueda a través de \texttt{WithSearch}, pero en lugar de depender del texto que el usuario va escribiendo, utiliza el texto final de búsqueda (\texttt{resultSearchTerm}). Esto garantiza que las gráficas se actualicen únicamente cuando se lanza una búsqueda completa, y no en cada pulsación de tecla.
+
+A partir del texto final de búsqueda y de los filtros activos, el componente construye una consulta a Elasticsearch que solo solicita agregaciones (sin recuperar documentos individuales). Se obtienen, para la gráfica de barras los precios medios por barrio y para la gráfica tipo ``pie'' la distribución del número de habitaciones. De este modo, el usuario puede visualizar rápidamente la situación total de precios y distribución de habitaciones en el mercado, o una visión general de la búsqueda o filtrado que ha realizado.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{img/charts.png}
+    \caption{Gráficas de precio medio por barrio y de distribución de habitaciones}
+    \label{fig:charts}
+\end{figure}
+
+\subsubsection{App.css}
+
+El archivo \texttt{App.css} define los estilos globales de la aplicación como tipografías, tamaños, márgenes y colores para unificar la apariencia visual. Además, personaliza elementos de la librería \textit{Search UI}, como el cuadro de búsqueda, los filtros y la paginación. También proporciona estilos específicos para las tarjetas de resultados, dando como resultado una presentación limpia y consistente en toda la interfaz.
+
+\section{Instalación}
+
+\subsection{Scrapy}
+\begin{enumerate}
+    \item Instalar scrapy e iniciar proyecto
+\end{enumerate}
+
+
+\begin{lstlisting}
+    $ pip install scrapy
+    $ scrapy startproject buscoocasa
+    
+\end{lstlisting}
+
+\subsection{Elasticsearch}
+
+\begin{enumerate}
+    \item Descarga e instalación
+\end{enumerate}
+
+\begin{lstlisting}
+      $ cd elasticsearch-9.2.1
+      $ bin/elasticsearch
+(mac) $ xattr -d com.apple.quarantine jdk.app
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{1}
+    \item Desactivar autenticación
+\end{enumerate}
+
+\begin{lstlisting}
+      $ nano config/elasticsearch.yml
+        + xpack.security.enabled: false
+        + xpack.security.enrollment.enabled: false
+
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{2}
+    \item Uso con python
+\end{enumerate}
+
+\begin{lstlisting}
+      $ pip install elasticsearch
+\end{lstlisting}
+
+
+\subsection{ElasticUI + React + Dependencias}
+
+\begin{enumerate}
+    \item Importante tener instalado React18 para que no de errores de dependencias
+\end{enumerate}
+
+\begin{lstlisting}
+      $ npm install react@18 react-dom@18
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{1}
+    \item Para el uso de gráficas es necesario instalar \texttt{recharts}
+\end{enumerate}
+
+\begin{lstlisting}
+      $ npm install recharts
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{2}
+    \item Para el uso de sliders es necesario instalar \texttt{recharts}
+\end{enumerate}
+
+\begin{lstlisting}
+      $ npm install rc-slider
+\end{lstlisting}
+
+$\ $\\
+
+\begin{enumerate}
+    \setcounter{enumi}{3}
+    \item Descargar la aplicación de Search UI
+\end{enumerate}
+
+\begin{lstlisting}
+      $ curl https://codeload.github.com/elastic/
+        app-search-reference-ui-react/tar.gz/master | tar -xz
+
+      $ cd app-search-reference-ui-react-master
+
+(mac) $ brew install yarn
+(mac) $ brew install npm
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{4}
+    \item Configuración \texttt{elasticsearch.yaml}
+\end{enumerate}
+
+\begin{lstlisting}
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+http.cors.allow-headers: X-Requested-With, X-Auth-Token, 
+Content-Type, Content-Length, Authorization, 
+Access-Control-Allow-Headers, Accept, x-elastic-client-meta
+http.cors.allow-methods: "OPTIONS, HEAD, GET, POST, PUT, DELETE"
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{5}
+    \item Instalar el conector para Elasticsearch
+\end{enumerate}
+
+\begin{lstlisting}
+    $ yarn add @elastic/search-ui-elasticsearch-connector
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{6}
+    \item Añadir a \texttt{src/App.js} para importar el nuevo conector de Elasticsearch
+\end{enumerate}
+\begin{lstlisting}
+    + import ElasticsearchAPIConnector from 
+      "@elastic/search-ui-elasticsearch-connector";
+    + const connector = new ElasticsearchAPIConnector({
+      host: "http://localhost:9200",
+      index: "pisos_index"
+      });
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{7}
+    \item Renombrar \texttt{src/config/engine.json.example} a \texttt{src/config/engine.json}
+\end{enumerate}
+
+\section{Ejecución}
+
+\begin{enumerate}
+    \item Iniciar el proyecto y generar el json
+\end{enumerate}
+
+\begin{lstlisting}
+    $ cd buscoocasa
+    $ scrapy crawl pisos -O data/pisos_a_coruna.jsonl
+      -s FEED_EXPORT_ENCODING=utf-8
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{1}
+    \item Iniciar el servidor Elasticsearch (donde lo hayas descargado)
+\end{enumerate}
+
+\begin{lstlisting}
+    $ cd elasticsearch-9.2.1
+    $ bin/elasticsearch
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{2}
+    \item Generar índices
+\end{enumerate}
+
+\begin{lstlisting}
+    $ cd buscoo.casa/elasticsearch
+    $ python3 create_index.py  
+    $ python3 insert_docs.py
+\end{lstlisting}
+
+\begin{enumerate}
+    \setcounter{enumi}{3}
+    \item Iniciar Servidor
+\end{enumerate}
+
+\begin{lstlisting}
+    $ cd buscoo.casa/app-search-reference-ui-react-master
+    $ npm start
+\end{lstlisting}
+
+
+% \subsubsection{Comprobaciones}
+% Comprobar el mapping
+% \begin{lstlisting}
+%     $ curl -X GET http://localhost:9200/pisos_index/_mapping?pretty
+% \end{lstlisting}
+
+\end{document}
+

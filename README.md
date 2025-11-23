@@ -1,8 +1,8 @@
 # Prerrequisitos
 
-Tener instalado `python3` con `scrapy`, `elasticsearch`, `npm` y/o `yarn`. 
+Tener instalado `python3` con `scrapy`. Además, instalar `elasticsearch`, `npm` y/o `yarn`. Se puede encontrar la instalación desde cero del proyecto en la sección **3** de la memoria.
 
-# INSTALACIÓN DE LBRERÍAS REQUERIDAS
+# Instalación de librerías requeridas
 
 ```
 npm install react@18 react-dom@18
@@ -10,7 +10,7 @@ npm install recharts
 npm install rc-slider
 ```
 
-# EJECUCIÓN
+# Ejecución
 ### Scrapy
 
 Nosotros ya aportamos un archivo `pisos_a_coruna.jsonl`, pero en caso de querer generarlo de nuevo:
@@ -27,7 +27,7 @@ Inicializar el servidor de elasticsearch donde se haya descargado
 bin/elasticsearch
 ```
 
-Creación de índices e inserción de elementos
+Creación de índice e inserción de elementos
 
 - desde `buscoo.casa/elasticsearch`
 
