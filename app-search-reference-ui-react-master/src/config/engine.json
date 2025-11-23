@@ -2,24 +2,21 @@
   "endpointBase": "http://localhost:9200",
   "engineName": "pisos_index",
   "searchKey": "",
-  "searchFields": ["title", "neighborhood", "description"],
+  "searchFields": ["title"],
   "resultFields": [
-    "id",
+    "listing_id",
     "title",
-    "description",
     "neighborhood",
     "price_eur",
     "rooms",
-    "square_meters",
-    "image_url",
-    "location",
-    "date_listed",
+    "bathrooms",
+    "surface_m2",
+    "images",
     "url"
   ],
-  "querySuggestFields": ["title", "neighborhood"],
   "titleField": "title",
   "urlField": "url",
-  "thumbnailField": "image_url",
+  "thumbnailField": "images",
   "sortFields": ["price_eur", "rooms", "title"],
-  "facets": ["neighborhood", "rooms", "price_eur"]
+  "facets": ["neighborhood", "rooms", "bathrooms", "price_eur", "surface_m2"]
 }
