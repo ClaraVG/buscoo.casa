@@ -4,7 +4,14 @@ import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
 
 export default function CustomFacetView(props) {
-  const { label, options = [], onChange, field } = props;
+  const {
+    label,
+    options = [],
+    onChange,
+    onSelect,
+    onRemove,
+    field
+  } = props;
 
   // ==========================
   // ¿Es faceta de rango (precio, superficie...)? -> value = { from, to, name? }
@@ -95,16 +102,18 @@ export default function CustomFacetView(props) {
 
     const name = `${Math.round(min)}${unit} - ${Math.round(max)}${unit}`;
 
-    onChange({
-      ...value,
-      name
-    });
+    // para facetas de rango Search UI espera onChange(value)
+    if (onChange) {
+      onChange({
+        ...value,
+        name
+      });
+    }
   };
 
   const handleRangeChange = (vals) => {
     const [min, max] = vals;
     setRangeValues([min, max]);
-    // Aplicamos el filtro en caliente (sin botón "Ir" ni "Limpiar")
     applyRangeFilter(min, max);
   };
 
@@ -162,76 +171,89 @@ export default function CustomFacetView(props) {
   }
 
   // ------- Facetas normales (checkbox) -------
-if (!options.length) return null;
 
-// ⚠️ calculamos si hay alguna seleccionada (para saber si mostrar el botón Limpiar o no)
-// (si ya quitaste el botón, puedes borrar hasAnySelection si no lo usas)
-const hasAnySelection = options.some((o) => o.selected);
+  if (!options.length) return null;
 
-return (
-  <div className="sui-facet">
-    <div className="sui-facet__title">{label}</div>
-    <div className="sui-facet__options-list">
-      {options.map((option) => {
-        // Deshabilitada SOLO si no está seleccionada y no tiene docs
-        const disabled = !option.selected && option.count === 0;
+  const hasAnySelection = options.some((o) => o.selected);
 
-        const valueLabel =
-          option.value && option.value.name
-            ? option.value.name
-            : String(option.value);
+  const handleCheckboxChange = (option) => {
+    if (option.selected) {
+      // estaba marcada → quitar filtro
+      if (onRemove) {
+        onRemove(option.value);
+      } else if (onChange) {
+        onChange(option.value);
+      }
+    } else {
+      // estaba desmarcada → añadir filtro
+      if (onSelect) {
+        onSelect(option.value);
+      } else if (onChange) {
+        onChange(option.value);
+      }
+    }
+  };
 
-        return (
-          <label
-            key={String(valueLabel)}
-            className="sui-facet__option"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              marginBottom: 4,
-              opacity: disabled ? 0.4 : 1,
-              cursor: disabled ? "default" : "pointer"
-            }}
-          >
-            <span>
-              <input
-                type="checkbox"
-                checked={option.selected}
-                disabled={disabled}
-                // 👇 AQUÍ LA CLAVE: indicamos si queremos dejarla seleccionada o no
-                onChange={() =>
-                  !disabled && onChange(option.value, !option.selected)
-                }
-                style={{ marginRight: 6 }}
-              />
-              {valueLabel}
-            </span>
-            <span className="sui-facet__option-count">{option.count}</span>
-          </label>
-        );
-      })}
+  return (
+    <div className="sui-facet">
+      <div className="sui-facet__title">{label}</div>
+      <div className="sui-facet__options-list">
+        {options.map((option) => {
+          const disabled = !option.selected && option.count === 0;
+
+          const valueLabel =
+            option.value && option.value.name
+              ? option.value.name
+              : String(option.value);
+
+          return (
+            <label
+              key={String(valueLabel)}
+              className="sui-facet__option"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                marginBottom: 4,
+                opacity: disabled ? 0.4 : 1,
+                cursor: disabled ? "default" : "pointer"
+              }}
+            >
+              <span>
+                <input
+                  type="checkbox"
+                  checked={!!option.selected}
+                  disabled={disabled}
+                  onChange={() => !disabled && handleCheckboxChange(option)}
+                  style={{ marginRight: 6 }}
+                />
+                {valueLabel}
+              </span>
+              <span className="sui-facet__option-count">{option.count}</span>
+            </label>
+          );
+        })}
+      </div>
+
+      {/* Si quieres recuperar el botón Limpiar, aquí lo tienes preparado */}
+      {/* {hasAnySelection && (
+        <button
+          type="button"
+          onClick={() => onRemove && options.forEach(o => o.selected && onRemove(o.value))}
+          style={{
+            marginTop: 6,
+            fontSize: "12px",
+            border: "none",
+            background: "transparent",
+            color: "#174978",
+            cursor: "pointer",
+            padding: 0
+          }}
+        >
+          Limpiar
+        </button>
+      )} */}
     </div>
-
-    {/* Si ya quitaste el botón "Limpiar", borra este bloque entero */}
-    {/* {hasAnySelection && (
-      <button
-        type="button"
-        onClick={() => onRemove()}
-        style={{
-          marginTop: 6,
-          fontSize: "12px",
-          border: "none",
-          background: "transparent",
-          color: "#174978",
-          cursor: "pointer",
-          padding: 0
-        }}
-      >
-        Limpiar
-      </button>
-    )} */}
-  </div>
-);
+  );
 }

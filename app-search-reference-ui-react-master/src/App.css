@@ -116,3 +116,52 @@ input.button.sui-search-box__submit {
 .result-card a h3:hover {
   color: #003366 !important;
 }
+/* Contenedor del selector de resultados por página */
+.sui-results-per-page {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Texto "Mostrar" con mismo tamaño que el select */
+.sui-results-per-page__label {
+  font-size: 14px;
+  color: #174978;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+/* Select estilizado */
+.sui-results-per-page__select {
+  font-size: 14px;                 /* igual que el texto */
+  padding: 4px 26px 4px 10px;      /* menos padding para que todo quede proporcionado */
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  cursor: pointer;
+
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  /* Chevron más pequeño */
+  background-image: url("data:image/svg+xml,%3Csvg fill='none' stroke='%23174978' stroke-width='2' width='14' height='14' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;           /* controla tamaño de la flecha */
+}
+
+/* Hover / focus */
+.sui-results-per-page__select:hover {
+  border-color: #174978;
+}
+
+.sui-results-per-page__select:focus {
+  outline: none;
+  border-color: #174978;
+  box-shadow: 0 0 0 2px rgba(23, 73, 120, 0.2);
+}
+

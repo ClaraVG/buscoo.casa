@@ -249,10 +249,9 @@ function Charts({ resultSearchTerm, filters, totalResults }) {
             <BarChart data={priceByNeighborhood}>
               <XAxis
                 dataKey="neighborhood"
-                angle={-45}
-                textAnchor="end"
-                height={80}
-                interval={0}
+                tick={false}
+                tickLine={false}
+                axisLine={false}
               />
               <YAxis />
               <Tooltip />
