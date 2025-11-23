@@ -6,6 +6,7 @@
     "@elastic/react-search-ui": "latest",
     "@elastic/search-ui-app-search-connector": "latest",
     "@elastic/search-ui-elasticsearch-connector": "^1.24.2",
+    "rc-slider": "^11.1.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.0",

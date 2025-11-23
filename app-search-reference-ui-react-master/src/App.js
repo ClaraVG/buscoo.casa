@@ -141,14 +141,16 @@ export default function App() {
                   field="surface_m2"
                   label="Superficie (m²)"
                   filterType="any"
-                  view={SurfaceFacetView}
+                  view={CustomFacetView}
                 />
+
                 <Facet
                   field="price_eur"
                   label="Precio (€)"
                   filterType="any"
-                  view={PriceFacetView}
+                  view={CustomFacetView}
                 />
+                
                 <Facet
                   field="neighborhood"
                   label="Barrio"
