@@ -12,19 +12,6 @@ class PisosSpider(scrapy.Spider):
     # Punto de arranque
     start_urls = ["https://www.pisos.com/alquiler/pisos-a_coruna_capital"]
 
-    custom_settings = {
-        "ROBOTSTXT_OBEY": True,
-        "DOWNLOAD_DELAY": 0.5,
-        "DEFAULT_REQUEST_HEADERS": {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "es-ES,es;q=0.9",
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-            ),
-        },
-    }
-
     # ------------ helper: reconocer URLs de ficha reales ------------
     def _is_detail_url(self, url: str) -> bool:
         """
