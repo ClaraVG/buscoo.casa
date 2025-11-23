@@ -4,7 +4,6 @@ import ElasticsearchAPIConnector from "@elastic/search-ui-elasticsearch-connecto
 
 import CustomResultView from "./components/CustomResultView";
 import Charts from "./components/Charts";
-import CustomFacetView from "./components/CustomFacetView";
 import RoomsFacetView from "./components/RoomsFacetView";
 import BathroomsFacetView from "./components/BathroomsFacetView";
 import SurfaceFacetView from "./components/SurfaceFacetView";

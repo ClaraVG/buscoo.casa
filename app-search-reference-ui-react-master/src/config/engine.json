@@ -1,0 +1,25 @@
+{
+  "endpointBase": "http://localhost:9200",
+  "engineName": "pisos_index",
+  "searchKey": "",
+  "searchFields": ["title", "neighborhood", "description"],
+  "resultFields": [
+    "id",
+    "title",
+    "description",
+    "neighborhood",
+    "price_eur",
+    "rooms",
+    "square_meters",
+    "image_url",
+    "location",
+    "date_listed",
+    "url"
+  ],
+  "querySuggestFields": ["title", "neighborhood"],
+  "titleField": "title",
+  "urlField": "url",
+  "thumbnailField": "image_url",
+  "sortFields": ["price_eur", "rooms", "title"],
+  "facets": ["neighborhood", "rooms", "price_eur"]
+}

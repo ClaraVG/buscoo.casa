@@ -13,7 +13,7 @@ class PisosSpider(scrapy.Spider):
     start_urls = ["https://www.pisos.com/alquiler/pisos-a_coruna_capital"]
 
     custom_settings = {
-        "ROBOTSTXT_OBEY": True,   # Ponlo en False solo si tienes permiso y lo necesitas para pruebas
+        "ROBOTSTXT_OBEY": True,
         "DOWNLOAD_DELAY": 0.5,
         "DEFAULT_REQUEST_HEADERS": {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",

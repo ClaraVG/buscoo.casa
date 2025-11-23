@@ -163,8 +163,6 @@ export default function CustomFacetView(props) {
 
   if (!options.length) return null;
 
-  const hasAnySelection = options.some((o) => o.selected);
-
   const handleCheckboxChange = (option) => {
     if (option.selected) {
       if (onRemove) {
