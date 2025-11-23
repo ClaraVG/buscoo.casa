@@ -1,4 +1,4 @@
-import createDynamicValueFacetView from "./createDynamicValueFacetView";
+import createDynamicValueFacetView from "./DynamicValueFacetView";
 
 const RoomsFacetView = createDynamicValueFacetView();
 

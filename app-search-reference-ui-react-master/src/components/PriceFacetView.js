@@ -1,4 +1,3 @@
-// src/components/PriceFacetView.js
 import React from "react";
 import CustomFacetView from "./CustomFacetView";
 

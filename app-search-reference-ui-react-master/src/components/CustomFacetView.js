@@ -1,4 +1,3 @@
-// src/components/CustomFacetView.js
 import React, { useState, useEffect } from "react";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
@@ -13,9 +12,6 @@ export default function CustomFacetView(props) {
     field
   } = props;
 
-  // ==========================
-  // ¿Es faceta de rango (precio, superficie...)? -> value = { from, to, name? }
-  // ==========================
   const firstVal = options[0]?.value;
   const isRangeFacet =
     firstVal &&
@@ -23,7 +19,6 @@ export default function CustomFacetView(props) {
     (Object.prototype.hasOwnProperty.call(firstVal, "from") ||
       Object.prototype.hasOwnProperty.call(firstVal, "to"));
 
-  // Inferimos el campo de ES si no viene por props
   const inferFieldFromLabel = () => {
     if (!label) return null;
     const lower = label.toLowerCase();
@@ -34,14 +29,12 @@ export default function CustomFacetView(props) {
 
   const esField = field || inferFieldFromLabel();
 
-  // ------- Estado para facetas de rango (price_eur, surface_m2) -------
   const [globalMin, setGlobalMin] = useState(null);
   const [globalMax, setGlobalMax] = useState(null);
   const [rangeValues, setRangeValues] = useState([0, 0]);
   const [loadingRange, setLoadingRange] = useState(false);
   const [rangeError, setRangeError] = useState(null);
 
-  // Cargar min y max reales desde Elasticsearch (todos los documentos)
   useEffect(() => {
     if (!isRangeFacet) return;
     if (!esField) return;
@@ -91,7 +84,6 @@ export default function CustomFacetView(props) {
       });
   }, [isRangeFacet, esField, label]);
 
-  // Aplica el filtro de rango al mover el slider
   const applyRangeFilter = (min, max) => {
     if (!isRangeFacet) return;
 
@@ -102,7 +94,6 @@ export default function CustomFacetView(props) {
 
     const name = `${Math.round(min)}${unit} - ${Math.round(max)}${unit}`;
 
-    // para facetas de rango Search UI espera onChange(value)
     if (onChange) {
       onChange({
         ...value,
@@ -117,7 +108,6 @@ export default function CustomFacetView(props) {
     applyRangeFilter(min, max);
   };
 
-  // Render para facetas de rango (slider doble tipo Amazon)
   if (isRangeFacet) {
     if (loadingRange || globalMin == null || globalMax == null) {
       return (
@@ -170,7 +160,6 @@ export default function CustomFacetView(props) {
     );
   }
 
-  // ------- Facetas normales (checkbox) -------
 
   if (!options.length) return null;
 
@@ -178,14 +167,12 @@ export default function CustomFacetView(props) {
 
   const handleCheckboxChange = (option) => {
     if (option.selected) {
-      // estaba marcada → quitar filtro
       if (onRemove) {
         onRemove(option.value);
       } else if (onChange) {
         onChange(option.value);
       }
     } else {
-      // estaba desmarcada → añadir filtro
       if (onSelect) {
         onSelect(option.value);
       } else if (onChange) {
@@ -235,25 +222,6 @@ export default function CustomFacetView(props) {
           );
         })}
       </div>
-
-      {/* Si quieres recuperar el botón Limpiar, aquí lo tienes preparado */}
-      {/* {hasAnySelection && (
-        <button
-          type="button"
-          onClick={() => onRemove && options.forEach(o => o.selected && onRemove(o.value))}
-          style={{
-            marginTop: 6,
-            fontSize: "12px",
-            border: "none",
-            background: "transparent",
-            color: "#174978",
-            cursor: "pointer",
-            padding: 0
-          }}
-        >
-          Limpiar
-        </button>
-      )} */}
     </div>
   );
 }

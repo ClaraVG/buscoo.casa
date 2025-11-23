@@ -1,4 +1,3 @@
-// src/components/Charts.js
 import React, { useEffect, useState } from "react";
 import { withSearch } from "@elastic/react-search-ui";
 import {
@@ -16,12 +15,10 @@ import {
 
 const COLORS = ["#174978", "#356fa6", "#6b97c4", "#a8c1df", "#ccd9ee"];
 
-// Construye una query de Elasticsearch basada en resultSearchTerm + filters de Search UI
 function buildEsQuery(resultSearchTerm, filters) {
   const must = [];
   const filterClauses = [];
 
-  // Búsqueda por texto (igual que Search UI: sobre "title")
   if (resultSearchTerm && resultSearchTerm.trim() !== "") {
     must.push({
       multi_match: {
@@ -32,15 +29,11 @@ function buildEsQuery(resultSearchTerm, filters) {
     });
   }
 
-  // Filtros (rooms, bathrooms, price_eur, surface_m2, neighborhood, ...)
   (filters || []).forEach((f) => {
-    // f: { field, values, type }   type: "any" | "all"
     if (!f.values || f.values.length === 0) return;
 
     if (f.type === "any") {
-      // (A OR B OR C)
       const should = f.values.map((v) => {
-        // Rango (price_eur, surface_m2)
         if (v && (v.from !== undefined || v.to !== undefined)) {
           const rangeBody = {};
           if (v.from !== undefined && v.from !== null) rangeBody.gte = v.from;
@@ -51,7 +44,6 @@ function buildEsQuery(resultSearchTerm, filters) {
             }
           };
         }
-        // Valor discreto (rooms, bathrooms, neighborhood)
         return {
           term: {
             [f.field]: v
@@ -66,7 +58,6 @@ function buildEsQuery(resultSearchTerm, filters) {
         }
       });
     } else if (f.type === "all") {
-      // (A AND B AND C)
       f.values.forEach((v) => {
         if (v && (v.from !== undefined || v.to !== undefined)) {
           const rangeBody = {};
@@ -98,10 +89,9 @@ function buildEsQuery(resultSearchTerm, filters) {
       : { match_all: {} };
 
   return {
-    size: 0, // <-- MUY IMPORTANTE: no queremos documentos, solo agregaciones
+    size: 0,
     query,
     aggs: {
-      // Precio medio por barrio
       neighborhood_avg_price: {
         terms: {
           field: "neighborhood",
@@ -115,7 +105,6 @@ function buildEsQuery(resultSearchTerm, filters) {
           }
         }
       },
-      // Distribución de habitaciones
       rooms_distribution: {
         terms: {
           field: "rooms",
@@ -133,12 +122,10 @@ function Charts({ resultSearchTerm, filters, totalResults }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Si aún no hay resultados (no se ha buscado), no hacemos nada
     if (totalResults == null) {
       return;
     }
 
-    // Si la búsqueda actual no devuelve resultados, limpiamos gráficas
     if (!totalResults || totalResults === 0) {
       setPriceByNeighborhood([]);
       setRoomsDistribution([]);
@@ -167,17 +154,17 @@ function Charts({ resultSearchTerm, filters, totalResults }) {
       .then((data) => {
         const aggs = data.aggregations || {};
 
-        // ----- Precio medio por barrio -----
         const neighBuckets =
           aggs.neighborhood_avg_price?.buckets || [];
         const priceData = neighBuckets
           .map((b) => ({
             neighborhood: b.key,
-            avgPrice: b.avg_price?.value ?? null
+            avgPrice: b.avg_price?.value != null
+            ? Number(b.avg_price.value.toFixed(2))
+            : null
           }))
           .filter((d) => d.avgPrice !== null);
 
-        // ----- Distribución de habitaciones -----
         const roomBuckets = aggs.rooms_distribution?.buckets || [];
         const roomsData = roomBuckets
           .map((b) => ({
@@ -205,7 +192,7 @@ function Charts({ resultSearchTerm, filters, totalResults }) {
   }, [resultSearchTerm, filters, totalResults]);
 
   if (loadingAggs) {
-    return null; // si quieres, puedes poner un spinner aquí
+    return null;
   }
 
   if (error) {
@@ -237,10 +224,9 @@ function Charts({ resultSearchTerm, filters, totalResults }) {
 
   return (
     <div style={{ display: "flex", gap: "32px", marginBottom: "16px" }}>
-      {/* Gráfica de barras: Precio medio por barrio */}
       <div style={{ flex: 2 }}>
         <h4 style={{ textAlign: "center", marginBottom: "8px" }}>
-          Precio medio por Barrio (Total Filtrado)
+          Precio medio por Barrio
         </h4>
         {priceByNeighborhood.length === 0 ? (
           <div style={{ textAlign: "center" }}>Sin datos de precio.</div>
@@ -268,10 +254,9 @@ function Charts({ resultSearchTerm, filters, totalResults }) {
         )}
       </div>
 
-      {/* Gráfica de tarta: Distribución de habitaciones */}
       <div style={{ flex: 1 }}>
         <h4 style={{ textAlign: "center", marginBottom: "8px" }}>
-          Distribución de Habitaciones (Total Filtrado)
+          Distribución de Habitaciones
         </h4>
         {roomsDistribution.length === 0 ? (
           <div style={{ textAlign: "center" }}>Sin datos de habitaciones.</div>
@@ -304,7 +289,6 @@ function Charts({ resultSearchTerm, filters, totalResults }) {
   );
 }
 
-// Conectamos Charts al estado de Search UI usando resultSearchTerm
 export default withSearch(
   ({ resultSearchTerm, filters, totalResults }) => ({
     resultSearchTerm,

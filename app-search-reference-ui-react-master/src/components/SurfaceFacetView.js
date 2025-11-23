@@ -1,4 +1,3 @@
-// src/components/SurfaceFacetView.js
 import React from "react";
 import CustomFacetView from "./CustomFacetView";
 
